@@ -1,18 +1,22 @@
-from myhdl import intbv,always,Signal
+from myhdl import intbv,always,Signal,TristateSignal
 
-def sdram(cke,clk,cs,we,cas,ras,addr,ba,dqml,dqmh,dq):
+def sdram(sd_intf):
 
-    regFile = [intbv(15,min=0,max=255)] * 5
+    regFile  = {}     # register file is essentially a map
+    dqDriver = sd_intf.dq.driver()    
 
-    @always(clk.posedge)
+    @always(sd_intf.clk.posedge)
     def function():
-        if(cke == 1):
-            if(we == 1):    # memory write operaton
-                regFile[addr.val] = dq.val
-                print "i : %d" %(regFile[addr.val])
+        if(sd_intf.cke == 1):
+            if(sd_intf.we == 1):    # memory write operaton
+                dqDriver.next = None
+                regFile[str(sd_intf.addr.val)] = sd_intf.dq
+                #print "i ",(regFile[sd_intf.addr.val])
+                print "add: ",str(sd_intf.addr.val)," val: ",str(sd_intf.dq)
             else:
-                dq.next = regFile[addr.val]
+                print str(regFile.get(str(sd_intf.addr.val),0))
+                dqDriver.next = regFile.get(str(sd_intf.addr.val),0)
 
-        print "address: %d value: %d" % (addr,regFile[addr.val])
+       # print "address:",sd_intf.addr," value : ",regFile[str(sd_intf.addr.val)]
                 
     return function

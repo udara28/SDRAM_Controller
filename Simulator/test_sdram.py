@@ -1,4 +1,5 @@
 from myhdl import Signal,always,delay,now,Simulation,intbv,instance
+from sd_intf import sd_intf
 from sdram import sdram
 
 def clkDrive(clk):
@@ -11,40 +12,33 @@ def clkDrive(clk):
 
     return driveClk
 
-def writeData(addr,dq,we):
+def writeData(sd_intf):
 
+    dqDriver = sd_intf.dq.driver()
+    dqDriver.next = None
+    sd_intf.cke.next = 1
     yield delay(10)
-    addr.next = 2
-    dq.next = 123
-    we.next = 1
+    sd_intf.addr.next = 2
+    sd_intf.we.next = 1
+    yield delay(5)
+    dqDriver.next = 123
     yield delay(10)
-    we.next = 0
-    dq.next = 0
+    sd_intf.we.next = 0
+    dqDriver.next = None
     
     yield delay(20)
-    addr.next = 1
+    sd_intf.addr.next = 1
     yield delay(20)
-    addr.next = 2
+    sd_intf.addr.next = 2
     yield delay(20)
-    addr.next = 3
+    sd_intf.addr.next = 3
 
-
-clk = Signal(0)
-cke = Signal(1)
-cs  = Signal(1)
-we  = Signal(0)
-cas = Signal(0)
-ras = Signal(0)
-addr= Signal(intbv(2,min=0,max=5))
-ba  = Signal(intbv(0,min=0,max=4))
-dqml= Signal(0)
-dqmh= Signal(0)
-dq  = Signal(intbv(0,min=0,max=255))
-
+clk = Signal(bool(0))
 # module instances
 clkDriver_inst = clkDrive(clk)
-sdram_inst     = sdram(cke,clk,cs,we,cas,ras,addr,ba,dqml,dqmh,dq)
-writeData_inst = writeData(addr,dq,we)
+sdram_intf     = sd_intf(clk)
+sdram_inst     = sdram(sdram_intf)
+writeData_inst = writeData(sdram_intf)
 
 sim = Simulation(clkDriver_inst, sdram_inst, writeData_inst)
 sim.run(100)
