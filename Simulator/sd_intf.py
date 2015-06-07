@@ -9,6 +9,8 @@ class sd_intf(object):
 
         self.clk = clk
         self.cke = Signal(bool(0))
+        self.cs  = Signal(bool(0))
+        self.cas = Signal(bool(0))
         self.ras = Signal(bool(0))
         self.we  = Signal(bool(0))
         self.bs  = Signal(intbv(0)[2:])
