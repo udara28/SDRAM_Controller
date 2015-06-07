@@ -6,31 +6,51 @@ commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
 
 def sdram(sd_intf):
 
-    regFile  = {}                     # register file for holding the values
-    data = sd_intf.dq.driver()        # driver for bidirectional DQ port
+    regFile  = {}                       # register file for holding the values
+    data = sd_intf.dq.driver()          # driver for bidirectional DQ port
 
     curr_command = Signal(commands.INVALID)
-
     control_logic_inst = Control_Logic(curr_command,sd_intf)
+
+    active_row = [None,None,None,None]  # Active row of each bank
 
     @always(sd_intf.clk.posedge)
     def function():
         if(sd_intf.cke == 1):
+            print " SDRAM : [COMMAND] ", curr_command
+            if(curr_command == commands.INVALID):
+                print " SDRAM : [ERROR] Invalid command is given" 
+            elif(curr_command == commands.ACTIVE):
+                activate(sd_intf.bs,sd_intf.addr)
+            elif(curr_command == commands.READ):
+                read(sd_intf.bs,sd_intf.addr)
+            elif(curr_command == commands.WRITE):
+                write(sd_intf.bs,sd_intf.addr)
+            elif(curr_command == commands.PRECHARGE):
+                precharge(sd_intf.bs,sd_intf.addr)
 
-            if(curr_command != commands.INVALID):
-                print " SDRAM : [COMMAND] " , curr_command.val   
-            if(curr_command.val == commands.WRITE):    # memory write operaton
-                data.next = None
-                regFile[str(sd_intf.addr.val)] = sd_intf.dq
-                #print "i ",(regFile[sd_intf.addr.val])
-                #print "add: ",str(sd_intf.addr.val)," val: ",str(sd_intf.dq)
-            else:
-                #print str(regFile.get(str(sd_intf.addr.val),0))
-                data.next = regFile.get(str(sd_intf.addr.val),0)
+   
+    def activate(bs,addr):
+        if(active_row[bs.val] != None):
+            print " SDRAM : [ERROR] A row is already activated. Bank should be precharged first"
+        active_row[bs.val] = addr.val
 
-       # print "address:",sd_intf.addr," value : ",regFile[str(sd_intf.addr.val)]
-                
-    return control_logic_inst,function
+    def read(bs,addr):
+        if(active_row[bs.val] == None):
+            print " SDRAM : [ERROR] A row should be activated before trying to read"
+
+    def write(bs,addr):
+        if(active_row[bs.val] == None):
+            print " SDRAM : [ERROR] A row should be activated before trying to write"
+
+    def precharge(bs,addr):
+        if(addr.val[10] == 1):           # Precharge all banks command
+            for row in active_row :
+                row = None
+        else:                            # Precharge selected bank
+            active_row[bs.val] = None
+
+    return instances()
 
 def Control_Logic(curr_command,sd_intf):
 
