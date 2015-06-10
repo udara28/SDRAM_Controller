@@ -4,6 +4,8 @@ from myhdl import *
 commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
                     "PRECHARGE","AUTO_REFRESH","LOAD_MODE","OUTPUT_EN","OUTPUT_Z","INVALID")
 
+states = enum("Uninitialized","Initialized","Idle","Row_active","Read","Write")
+
 def sdram(sd_intf):
 
     regFile  = {}                       # register file for holding the values
@@ -12,12 +14,18 @@ def sdram(sd_intf):
     curr_command = Signal(commands.INVALID)
     control_logic_inst = Control_Logic(curr_command,sd_intf)
 
+    curr_state = [ State(), State(), State(), State() ] # Represents the state of eah bank
+
     active_row = [None,None,None,None]  # Active row of each bank
 
     @always(sd_intf.clk.posedge)
     def function():
         if(sd_intf.cke == 1):
             print " SDRAM : [COMMAND] ", curr_command
+
+            for bank_state in curr_state :
+                bank_state.nextState(curr_command)
+
             if(curr_command == commands.INVALID):
                 print " SDRAM : [ERROR] Invalid command is given" 
             elif(curr_command == commands.ACTIVE):
@@ -94,3 +102,18 @@ def Control_Logic(curr_command,sd_intf):
     
     return decode
 
+class State:
+
+    def __init__(self):
+        self.state     = states.Uninitialized
+        self.init_time = now()
+        self.wait      = 0
+
+    def nextState(self,curr_command):
+        self.wait = now() - self.init_time
+    
+        if(self.state == states.Uninitialized):
+            if(self.wait >= 100):
+                self.state     = states.Initialized
+                self.init_time = now()
+                self.wait      = 0
