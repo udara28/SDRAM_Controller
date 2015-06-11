@@ -14,7 +14,7 @@ def sdram(sd_intf):
     curr_command = Signal(commands.INVALID)
     control_logic_inst = Control_Logic(curr_command,sd_intf)
 
-    curr_state = [ State(), State(), State(), State() ] # Represents the state of eah bank
+    curr_state = [ State(0), State(1), State(2), State(3) ] # Represents the state of eah bank
 
     active_row = [None,None,None,None]  # Active row of each bank
 
@@ -41,6 +41,10 @@ def sdram(sd_intf):
     def activate(bs,addr):
         if(active_row[bs.val] != None):
             print " SDRAM : [ERROR] A row is already activated. Bank should be precharged first"
+            return None
+        if(curr_state[bs.val].getState() == states.Uninitialized):
+            print " SDRAM : [ERROR] Bank is not in a good state. Too bad for you"
+            return None
         active_row[bs.val] = addr.val
 
     def read(bs,addr):
@@ -104,16 +108,21 @@ def Control_Logic(curr_command,sd_intf):
 
 class State:
 
-    def __init__(self):
+    def __init__(self,bank_id):
         self.state     = states.Uninitialized
         self.init_time = now()
         self.wait      = 0
+        self.bank_id   = bank_id
 
     def nextState(self,curr_command):
         self.wait = now() - self.init_time
     
         if(self.state == states.Uninitialized):
             if(self.wait >= 100):
+                print " BANK",self.bank_id,"STATE : [CHANGE] Uninitialized -> Initialized @ ", now()
                 self.state     = states.Initialized
                 self.init_time = now()
                 self.wait      = 0
+
+    def getState(self):
+        return self.state
