@@ -1,10 +1,11 @@
 from myhdl import *
 
-
 commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
                     "PRECHARGE","AUTO_REFRESH","LOAD_MODE","OUTPUT_EN","OUTPUT_Z","INVALID")
 
-states = enum("Uninitialized","Initialized","Idle","Row_active","Read","Write")
+states   = enum("Uninitialized","Initialized","Idle","Activating","Active","Read","Reading","Read_rdy","Write")
+
+regFile  = {}
 
 def sdram(sd_intf):
 
@@ -24,7 +25,7 @@ def sdram(sd_intf):
             print " SDRAM : [COMMAND] ", curr_command
 
             for bank_state in curr_state :
-                bank_state.nextState(curr_command)
+                bank_state.nextState(curr_command,sd_intf)
 
             if(curr_command == commands.INVALID):
                 print " SDRAM : [ERROR] Invalid command is given" 
@@ -108,21 +109,41 @@ def Control_Logic(curr_command,sd_intf):
 
 class State:
 
-    def __init__(self,bank_id):
+    def __init__(self,bank_id,regFile={}):
         self.state     = states.Uninitialized
         self.init_time = now()
         self.wait      = 0
         self.bank_id   = bank_id
+        self.memory    = regFile
+        self.addr      = None
+        self.data      = None
 
-    def nextState(self,curr_command):
+    def nextState(self,curr_command,sd_intf=None):
         self.wait = now() - self.init_time
     
         if(self.state == states.Uninitialized):
-            if(self.wait >= 100):
+            if(self.wait >= sd_intf.timing['init']):
                 print " BANK",self.bank_id,"STATE : [CHANGE] Uninitialized -> Initialized @ ", now()
                 self.state     = states.Initialized
                 self.init_time = now()
                 self.wait      = 0
+
+        if(self.state == states.Idle):
+            if(curr_command ==  commands.READ):
+                self.state     = states.Reading
+                self.init_time = now()
+                if(sd_intf != None):
+                    self.addr  = sd_intf.addr
+
+        if(self.state == states.Reading):
+            if(self.wait >= sd_intf.timing['rcd']):
+                self.state     = states.Read_rdy
+                self.init_time = now()
+                self.data      = self.memory[self.adddr]
+
+        if(self.state == states.Read_rdy):
+                self.state = states.Idle
+                self.init_time = now()
 
     def getState(self):
         return self.state
