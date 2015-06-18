@@ -120,51 +120,50 @@ class State:
 
     def nextState(self,curr_command):
         self.wait = now() - self.init_time
-    
         if(self.state == states.Uninitialized):
             if(self.wait >= self.sd_intf.timing['init']):
                 print " BANK",self.bank_id,"STATE : [CHANGE] Uninitialized -> Initialized @ ", now()
                 self.state     = states.Initialized
                 self.init_time = now()
+                #self.driver.next = 45
                 self.wait      = 0
 
-        # Reading states
-        if(self.state == states.Idle or self.state == states.Initialized):
+        elif(self.state == states.Idle or self.state == states.Initialized):
+            # Reading command
             if(curr_command ==  commands.READ  and self.bank_id == self.sd_intf.bs.val):
                 self.state     = states.Reading
                 self.init_time = now()
                 if(self.sd_intf != None):
-                    self.addr  = self.sd_intf.addr
-
-        if(self.state == states.Reading):
-            if(self.wait >= self.sd_intf.timing['rcd']):
-                print "wait " , self.wait
-                self.state     = states.Read_rdy
-                self.init_time = now()
-                if(self.active_row != None):
-                    self.driver.next = self.memory[self.active_row * 10000 + self.addr]
-                print "STATE : [READ] Data Ready @ ", now()
-
-        if(self.state == states.Read_rdy):
-                self.state = states.Idle
-                self.init_time = now()
-                self.driver.next = None 
-
-        # Writing states
-        if(self.state == states.Idle or self.state == states.Initialized):
-            if(curr_command == commands.WRITE and self.bank_id == self.sd_intf.bs.val):
+                    self.addr  = self.sd_intf.addr.val
+            # Writing command
+            elif(curr_command == commands.WRITE and self.bank_id == self.sd_intf.bs.val):
                 self.state     = states.Writing
                 self.init_time = now()
                 if(self.sd_intf != None):
                     self.addr  = self.sd_intf.addr
                     self.data  = self.sd_intf.dq.val
+                    print "write => ",self.data
 
-        if(self.state == states.Writing):
+        elif(self.state == states.Reading):
+            if(self.wait >= self.sd_intf.timing['rcd']):
+                self.state     = states.Read_rdy
+                self.init_time = now()
+                #if(self.active_row != None):
+                self.driver.next = self.memory[self.active_row * 10000 + self.addr]
+                print "STATE : [READ] Data Ready @ ", now()
+
+        elif(self.state == states.Read_rdy):
+                self.state = states.Idle
+                self.init_time = now()
+                self.driver.next = None 
+
+        elif(self.state == states.Writing):
             if(self.wait >= self.sd_intf.timing['rcd']):
                 self.state     = states.Idle
                 self.init_time = now()
                 if(self.active_row != None):
                     self.memory[self.active_row * 10000 + self.addr] = self.data
+                    print " data => ",self.memory[self.active_row*10000 + self.addr]
 
     def getState(self):
         return self.state
