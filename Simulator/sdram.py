@@ -5,11 +5,8 @@ commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
 
 states   = enum("Uninitialized","Initialized","Idle","Activating","Active","Read","Reading","Read_rdy","Write","Writing")
 
-regFile  = {}
-
 def sdram(sd_intf):
 
-    regFile  = {}                       # register file for holding the values
     data = sd_intf.dq.driver()          # driver for bidirectional DQ port
 
     curr_command = Signal(commands.INVALID)
@@ -50,7 +47,7 @@ def sdram(sd_intf):
         if(curr_state[bs.val].active_row == None):
             print " SDRAM : [ERROR] A row should be activated before trying to read"
         else:
-            print " okay"        
+            print " SDRAM : [READ] Commnad registered " 
 
     def write(bs,addr):
         if(curr_state[bs.val].active_row == None):
@@ -132,18 +129,21 @@ class State:
                 self.wait      = 0
 
         # Reading states
-        if(self.state == states.Idle):
-            if(curr_command ==  commands.READ):
+        if(self.state == states.Idle or self.state == states.Initialized):
+            if(curr_command ==  commands.READ  and self.bank_id == self.sd_intf.bs.val):
                 self.state     = states.Reading
                 self.init_time = now()
-                if(sd_intf != None):
+                if(self.sd_intf != None):
                     self.addr  = self.sd_intf.addr
 
         if(self.state == states.Reading):
-            if(self.wait >= sd_intf.timing['rcd']):
+            if(self.wait >= self.sd_intf.timing['rcd']):
+                print "wait " , self.wait
                 self.state     = states.Read_rdy
                 self.init_time = now()
-                self.driver.next = self.memory[self.active_row + self.addr]
+                if(self.active_row != None):
+                    self.driver.next = self.memory[self.active_row * 10000 + self.addr]
+                print "STATE : [READ] Data Ready @ ", now()
 
         if(self.state == states.Read_rdy):
                 self.state = states.Idle
@@ -151,19 +151,20 @@ class State:
                 self.driver.next = None 
 
         # Writing states
-        if(self.state == states.Idle):
-            if(curr_command == commands.WRITE):
+        if(self.state == states.Idle or self.state == states.Initialized):
+            if(curr_command == commands.WRITE and self.bank_id == self.sd_intf.bs.val):
                 self.state     = states.Writing
                 self.init_time = now()
-                if(sd_intf != None):
+                if(self.sd_intf != None):
                     self.addr  = self.sd_intf.addr
-                    self.data  = self.sd_intf.data
+                    self.data  = self.sd_intf.dq.val
 
         if(self.state == states.Writing):
             if(self.wait >= self.sd_intf.timing['rcd']):
                 self.state     = states.Idle
                 self.init_time = now()
-                self.memory[self.active_row + self.addr] = self.data
+                if(self.active_row != None):
+                    self.memory[self.active_row * 10000 + self.addr] = self.data
 
     def getState(self):
         return self.state
