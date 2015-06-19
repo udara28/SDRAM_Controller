@@ -140,9 +140,8 @@ class State:
                 self.state     = states.Writing
                 self.init_time = now()
                 if(self.sd_intf != None):
-                    self.addr  = self.sd_intf.addr
+                    self.addr  = self.sd_intf.addr.val
                     self.data  = self.sd_intf.dq.val
-                    print "write => ",self.data
 
         elif(self.state == states.Reading):
             if(self.wait >= self.sd_intf.timing['rcd']):
@@ -150,7 +149,7 @@ class State:
                 self.init_time = now()
                 #if(self.active_row != None):
                 self.driver.next = self.memory[self.active_row * 10000 + self.addr]
-                print "STATE : [READ] Data Ready @ ", now()
+                print " STATE : [READ] Data Ready @ ", now()
 
         elif(self.state == states.Read_rdy):
                 self.state = states.Idle
@@ -163,7 +162,6 @@ class State:
                 self.init_time = now()
                 if(self.active_row != None):
                     self.memory[self.active_row * 10000 + self.addr] = self.data
-                    print " data => ",self.memory[self.active_row*10000 + self.addr]
 
     def getState(self):
         return self.state
