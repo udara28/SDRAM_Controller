@@ -6,15 +6,19 @@ def test_readWrite(sd_intf):
     @instance
     def test():
         yield delay(100)
+        yield sd_intf.nop()
         yield sd_intf.activate(17)
+        yield sd_intf.nop()
+        yield delay(30)
         yield sd_intf.write(20,31)
-        yield delay(10)
+        yield sd_intf.nop()
+        yield delay(30)
         yield sd_intf.read(20)
         yield sd_intf.nop()
-        yield sd_intf.nop()
+        yield delay(20)
         for i in range(20):
             print sd_intf.dq.val
-            yield sd_intf.nop()
+            yield delay(10)
         print "hello world"
         
     return test
