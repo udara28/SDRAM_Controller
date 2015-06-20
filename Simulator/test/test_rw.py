@@ -1,7 +1,5 @@
 from myhdl import *
-from Clk import clkDriver
-from sd_intf import sd_intf
-from sdram import sdram
+from Simulator import *
 
 def test_rw(sd):
 
