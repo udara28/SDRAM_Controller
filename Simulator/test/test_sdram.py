@@ -5,7 +5,8 @@ def test_readWrite(sd_intf):
     
     @instance
     def test():
-        yield delay(100)
+        yield delay(120)
+        sd_intf.cke.next = 1
         yield sd_intf.nop()
         yield sd_intf.activate(17)
         yield sd_intf.nop()
