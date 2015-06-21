@@ -64,7 +64,7 @@ def sdram(sd_intf):
 
 def Control_Logic(curr_command,sd_intf):
 
-    @always(sd_intf.clk.posedge)
+    @always_comb
     def decode():
         # detect the registered command
         if(sd_intf.cs == 1):
