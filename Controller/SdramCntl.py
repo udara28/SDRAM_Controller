@@ -26,6 +26,10 @@ def SdramCntl(
         sdDqml_o,
     ):
 
+    # delay constants
+    INIT_CYCLES_C = 4
+    RP_CYCLES_C   = 3
+    
     # states of the SDRAM controller state machine
     CntlStateType = (
             INITWAIT,  # initialization - waiting for power-on initialization to complete.
@@ -40,13 +44,32 @@ def SdramCntl(
     
     state_r , state_x = None,None # state register and next state
     
-    
+    timer_r , timer_x = 0, 0
 
     @always_comb
-    def test():
-        clk_i = a & b
+    def comb_func():
+        
+        # Applying commands
+        sdCe_bo, sdRas_bo, sdCas_bo, sdWe_bo = 
+        
+        
+        if timer_r != 0 :
+            timer_x = timer_r - 1
+        else
+            timer_x = timer_r
+            
+            if   state_r == CntlStateType.INITWAIT :
+                # wait for SDRAM power-on initialization once the clock is stable
+                timer_x = INIT_CYCLES_C;  # set timer for initialization duration
+                state_x = INITPCHG;
+                
+            elif state_r == CntlStateType.INITPCHG :
+                # all banks should be precharged after initialization
+                cmd_x                 = PCHG_CMD_C;
+                timer_x               = RP_CYCLES_C;  # set timer for precharge operation duration
+                
 
-    return test
+    return func
 
 a  = Signal(bool(0))
 b  = Signal(bool(0))
