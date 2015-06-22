@@ -25,6 +25,15 @@ def SdramCntl(
         sdDqmh_o,
         sdDqml_o,
     ):
+    
+    # commands to SDRAM    ce ras cas we dqml dqmh
+    NOP_CMD_C     = 0,1,1,1,0,0 
+    ACTIVE_CMD_C  = 0,0,1,1,0,0
+    READ_CMD_C    = 0,1,0,1,0,0
+    WRITE_CMD_C   = 0,1,0,0,0,0
+    PCHG_CMD_C    = 0,0,1,0,0,0
+    MODE_CMD_C    = 0,0,0,0,0,0
+    RFSH_CMD_C    = 0,0,0,1,0,0
 
     # delay constants
     INIT_CYCLES_C = 4
