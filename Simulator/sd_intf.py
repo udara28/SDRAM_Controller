@@ -69,4 +69,5 @@ class sd_intf(object):
         # [WRITE] # cs ras cas we dqm : L H L L X
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,1,0,0
         yield self.clk.posedge
+        yield self.clk.posedge
         self.driver.next = None
