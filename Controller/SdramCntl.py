@@ -1,5 +1,5 @@
 from myhdl import *
-
+from Simulator import *
 
 def SdramCntl(
     # Host side
@@ -24,16 +24,17 @@ def SdramCntl(
         sdData_io,
         sdDqmh_o,
         sdDqml_o,
+        sd_intf,
     ):
     
     # commands to SDRAM    ce ras cas we dqml dqmh
-    NOP_CMD_C     = 0,1,1,1,0,0 
-    ACTIVE_CMD_C  = 0,0,1,1,0,0
-    READ_CMD_C    = 0,1,0,1,0,0
-    WRITE_CMD_C   = 0,1,0,0,0,0
-    PCHG_CMD_C    = 0,0,1,0,0,0
-    MODE_CMD_C    = 0,0,0,0,0,0
-    RFSH_CMD_C    = 0,0,0,1,0,0
+    NOP_CMD_C     = intbv("01_1100")[6:]  #0,1,1,1,0,0 
+    ACTIVE_CMD_C  = intbv("00_1100")[6:]  #0,0,1,1,0,0
+    READ_CMD_C    = intbv("01_0100")[6:]  # 0,1,0,1,0,0
+    WRITE_CMD_C   = intbv("01_0000")[6:]  # 0,1,0,0,0,0
+    PCHG_CMD_C    = intbv("00_1000")[6:]  # 0,0,1,0,0,0
+    MODE_CMD_C    = intbv("00_0000")[6:]  # 0,0,0,0,0,0
+    RFSH_CMD_C    = intbv("00_0100")[6:]  # 0,0,0,1,0,0
     
 
     # delay constants
@@ -52,15 +53,34 @@ def SdramCntl(
             'SELFREFRESH'   # keep SDRAM in self-refresh mode with CKE low.
         );
     
-    state_r , state_x = None,None # state register and next state
+    # state register and next state
+    state_r = Signal(CntlStateType.INITWAIT)
+    state_x = Signal(CntlStateType.INITWAIT)
     
     timer_r , timer_x = 0, 0
+    
+    # command assignment
+    cmd_r   = Signal(NOP_CMD_C)
+    cmd_x   = Signal(NOP_CMD_C)
+    
+    # pin assignment for SDRAM
+    @always_comb
+    def sdram_pin_map():
+        sd_intf.clk.next    = clk_i
+        sd_intf.cke.next    = 1
+        sd_intf.cs.next     = cmd_r[5]
+        sd_intf.cas.next    = cmd_r[4]
+        sd_intf.ras.next    = cmd_r[3]
+        sd_intf.we.next     = cmd_r[2]
+        sd_intf.bs.next     = cmd_r[1]
+        sd_intf.addr.next   = 0
+        sd_intf.dqml.next   = 0
+        sd_intf.dqmh.next   = 0
+        sd_intf.driver.next = 0
+    
 
     @always_comb
     def comb_func():
-        
-        # Applying commands
-        sdCe_bo, sdRas_bo, sdCas_bo, sdWe_bo, sdDqmh_o, sdDqml_o, = cmd_r
         
         
         if timer_r != 0 :
@@ -68,28 +88,23 @@ def SdramCntl(
         else :
             timer_x = timer_r
             
-            if   state_r == CntlStateType.INITWAIT :
+            if   state_r.val == CntlStateType.INITWAIT :
                 # wait for SDRAM power-on initialization once the clock is stable
                 timer_x = INIT_CYCLES_C;  # set timer for initialization duration
-                state_x = INITPCHG;
+                state_x.next = CntlStateType.INITPCHG;
                 
-            elif state_r == CntlStateType.INITPCHG :
+            elif state_r.val == CntlStateType.INITPCHG :
                 # all banks should be precharged after initialization
-                cmd_x                 = PCHG_CMD_C;
+                cmd_x.next                 = PCHG_CMD_C;
                 timer_x               = RP_CYCLES_C;  # set timer for precharge operation duration
               
               
     @always_seq(clk_i.posedge, rst_i)
     def seq_func():
-        if rst_i == 1 :
-            state_r = CntlStateType.INITWAIT;
-            timer_r = 0
-            cmd_r   = NOP_CMD_C
-            
-        elif clk_i.posedge == 1 :
-            state_r = state_x
-            cmd_r   = cmd_x
-            timer_r = timer_x
+
+        state_r.next = state_x.val
+        cmd_r.next   = cmd_x.val
+        timer_r = timer_x
         
 
-    return comb_func, seq_func
+    return comb_func, seq_func, sdram_pin_map

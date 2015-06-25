@@ -31,7 +31,7 @@ sdDqml_o  = sd_intf_Inst.dqml
 
 sdram_Inst = sdram(sd_intf_Inst)
 sdramCntl_Inst = SdramCntl(clk_i,rst_i,rd_i,wr_i,addr_i,data_i,data_o,done_o,status_o,opBegun_o,
-                        sdCke_o,sdCe_bo,sdRas_bo,sdCas_bo,sdWe_bo,sdBs_o,sdAddr_o,sdData_io,sdDqmh_o,sdDqml_o)
+                        sdCke_o,sdCe_bo,sdRas_bo,sdCas_bo,sdWe_bo,sdBs_o,sdAddr_o,sdData_io,sdDqmh_o,sdDqml_o,sd_intf_Inst)
 
 sim = Simulation(clkDriver_Inst,sdram_Inst,sdramCntl_Inst)
 sim.run(250)
