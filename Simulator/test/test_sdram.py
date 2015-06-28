@@ -12,7 +12,7 @@ def test_readWrite(sd_intf):
         yield sd_intf.nop()
         yield delay(10)
         yield sd_intf.write(20,31)
-        yield delay(10)
+        yield delay(5)
         yield sd_intf.nop()
         yield delay(10)
         yield sd_intf.read(20)
