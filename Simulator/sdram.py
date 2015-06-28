@@ -1,22 +1,18 @@
 from myhdl import *
 
-
 commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
                     "PRECHARGE","AUTO_REFRESH","LOAD_MODE","OUTPUT_EN","OUTPUT_Z","INVALID")
 
-states = enum("Uninitialized","Initialized","Idle","Row_active","Read","Write")
+states   = enum("Uninitialized","Initialized","Idle","Activating","Active","Read","Reading","Read_rdy","Write","Writing")
 
 def sdram(sd_intf):
 
-    regFile  = {}                       # register file for holding the values
     data = sd_intf.dq.driver()          # driver for bidirectional DQ port
 
     curr_command = Signal(commands.INVALID)
     control_logic_inst = Control_Logic(curr_command,sd_intf)
 
-    curr_state = [ State(0), State(1), State(2), State(3) ] # Represents the state of eah bank
-
-    active_row = [None,None,None,None]  # Active row of each bank
+    curr_state = [ State(0,sd_intf), State(1,sd_intf), State(2,sd_intf), State(3,sd_intf) ] # Represents the state of eah bank
 
     @always(sd_intf.clk.posedge)
     def function():
@@ -39,34 +35,36 @@ def sdram(sd_intf):
 
    
     def activate(bs,addr):
-        if(active_row[bs.val] != None):
+        if(curr_state[bs.val].active_row != None):
             print " SDRAM : [ERROR] A row is already activated. Bank should be precharged first"
             return None
         if(curr_state[bs.val].getState() == states.Uninitialized):
             print " SDRAM : [ERROR] Bank is not in a good state. Too bad for you"
             return None
-        active_row[bs.val] = addr.val
+        curr_state[bs.val].active_row = addr.val
 
     def read(bs,addr):
-        if(active_row[bs.val] == None):
+        if(curr_state[bs.val].active_row == None):
             print " SDRAM : [ERROR] A row should be activated before trying to read"
+        else:
+            print " SDRAM : [READ] Commnad registered " 
 
     def write(bs,addr):
-        if(active_row[bs.val] == None):
+        if(curr_state[bs.val].active_row == None):
             print " SDRAM : [ERROR] A row should be activated before trying to write"
 
     def precharge(bs,addr):
         if(addr.val[10] == 1):           # Precharge all banks command
-            for row in active_row :
-                row = None
+            for bank in curr_state :
+                bank.active_row = None
         else:                            # Precharge selected bank
-            active_row[bs.val] = None
+            curr_state[bs.val].active_row  = None
 
     return instances()
 
 def Control_Logic(curr_command,sd_intf):
 
-    @always(sd_intf.clk.posedge)
+    @always_comb
     def decode():
         # detect the registered command
         if(sd_intf.cs == 1):
@@ -108,21 +106,65 @@ def Control_Logic(curr_command,sd_intf):
 
 class State:
 
-    def __init__(self,bank_id):
-        self.state     = states.Uninitialized
-        self.init_time = now()
-        self.wait      = 0
-        self.bank_id   = bank_id
+    def __init__(self,bank_id,sd_intf,regFile={}):
+        self.state      = states.Uninitialized
+        self.init_time  = now()
+        self.wait       = 0
+        self.bank_id    = bank_id
+        self.memory     = regFile
+        self.sd_intf    = sd_intf
+        self.driver     = sd_intf.dq.driver()
+        self.active_row = None
+        self.addr       = None
+        self.data       = None
 
     def nextState(self,curr_command):
         self.wait = now() - self.init_time
-    
         if(self.state == states.Uninitialized):
-            if(self.wait >= 100):
+            if(self.wait >= self.sd_intf.timing['init']):
                 print " BANK",self.bank_id,"STATE : [CHANGE] Uninitialized -> Initialized @ ", now()
                 self.state     = states.Initialized
                 self.init_time = now()
+                #self.driver.next = 45
                 self.wait      = 0
+
+        elif(self.state == states.Idle or self.state == states.Initialized):
+            # Reading command
+            if(curr_command ==  commands.READ  and self.bank_id == self.sd_intf.bs.val):
+                self.state     = states.Reading
+                self.init_time = now()
+                if(self.sd_intf != None):
+                    self.addr  = self.sd_intf.addr.val
+            # Writing command
+            elif(curr_command == commands.WRITE and self.bank_id == self.sd_intf.bs.val):
+                self.state     = states.Writing
+                self.init_time = now()
+                if(self.sd_intf != None):
+                    self.addr  = self.sd_intf.addr.val
+                    self.data  = self.sd_intf.dq.val
+
+        elif(self.state == states.Reading):
+            if(self.wait >= self.sd_intf.timing['rcd']):
+                self.state     = states.Read_rdy
+                self.init_time = now()
+                #if(self.active_row != None):
+                self.driver.next = self.memory[self.active_row * 10000 + self.addr]
+                print " STATE : [READ] Data Ready @ ", now()
+
+        elif(self.state == states.Read_rdy):
+                self.state = states.Idle
+                self.init_time = now()
+                self.driver.next = None 
+
+        elif(self.state == states.Writing):
+            if(self.wait >= self.sd_intf.timing['rcd']):
+                self.state     = states.Idle
+                self.init_time = now()
+                if(self.active_row != None):
+                    self.memory[self.active_row * 10000 + self.addr] = self.data
 
     def getState(self):
         return self.state
+
+    def getData(self):
+        return self.data
