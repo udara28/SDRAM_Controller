@@ -165,7 +165,7 @@ class State:
         elif(self.state == states.Read_rdy):
                 self.state = states.Idle
                 self.init_time = now()
-                #self.driver.next = None 
+                self.driver.next = None 
 
         elif(self.state == states.Writing):
             if(self.wait >= self.sd_intf.timing['rcd']):
