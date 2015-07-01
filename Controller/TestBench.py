@@ -14,7 +14,6 @@ def test_readWrite(host_intf,sd_intf):
         yield delay(20)
         yield host_intf.read(120)
         yield host_intf.done_o.posedge
-        print "sd val ", sd_intf.dq.val
         print "Data Value : ",host_intf.data_o
     return test
 
@@ -31,4 +30,4 @@ sdramCntl_Inst = SdramCntl(host_intf_Inst,sd_intf_Inst,rst_i)
 test_readWrite_Inst = test_readWrite(host_intf_Inst,sd_intf_Inst)
 
 sim = Simulation(clkDriver_Inst,sdram_Inst,sdramCntl_Inst,test_readWrite_Inst)
-sim.run(500)
+sim.run(350)
