@@ -9,6 +9,7 @@ class sd_intf(object):
         'init' : 100,    # min init interval
         'ras'  : 10,        # min interval between active prechargs
         'rcd'  : 10,        # min interval between active R/W
+        'cas'  : 20,
         'ref'  : 64000000,  # max refresh interval
         'rfc'  : 65,        # refresh opertaion
         'rp'   : 20,        # min precharge

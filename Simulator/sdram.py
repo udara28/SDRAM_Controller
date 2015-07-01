@@ -15,7 +15,7 @@ def sdram(sd_intf):
     curr_state = [ State(0,sd_intf), State(1,sd_intf), State(2,sd_intf), State(3,sd_intf) ] # Represents the state of eah bank
 
     @always(sd_intf.clk.posedge)
-    def function():
+    def main_function():
         if(sd_intf.cke == 1):
             print " SDRAM : [COMMAND] ", curr_command
 
@@ -32,6 +32,15 @@ def sdram(sd_intf):
                 write(sd_intf.bs,sd_intf.addr)
             elif(curr_command == commands.PRECHARGE):
                 precharge(sd_intf.bs,sd_intf.addr)
+                
+    @always(sd_intf.clk.negedge)
+    def read_function():
+        bank_state = curr_state[sd_intf.bs.val]
+        if(bank_state.state == states.Read_rdy or bank_state.state == states.Reading):
+            bank_state.driver.next = bank_state.data
+            #print "debug ",bank_state.data
+        else:
+            bank_state.driver.next = None
 
    
     def activate(bs,addr):
@@ -129,6 +138,7 @@ class State:
                 self.wait      = 0
 
         elif(self.state == states.Idle or self.state == states.Initialized):
+            self.data = 0
             # Reading command
             if(curr_command ==  commands.READ  and self.bank_id == self.sd_intf.bs.val):
                 self.state     = states.Reading
@@ -144,23 +154,25 @@ class State:
                     self.data  = self.sd_intf.dq.val
 
         elif(self.state == states.Reading):
-            if(self.wait >= self.sd_intf.timing['rcd']):
+            #self.data = self.memory[self.active_row * 10000 + self.addr]
+            if(self.wait >= self.sd_intf.timing['cas']):
                 self.state     = states.Read_rdy
                 self.init_time = now()
-                #if(self.active_row != None):
-                self.driver.next = self.memory[self.active_row * 10000 + self.addr]
+                if(self.active_row != None):
+                    self.data = self.memory[self.active_row * 10000 + self.addr]
                 print " STATE : [READ] Data Ready @ ", now()
 
         elif(self.state == states.Read_rdy):
                 self.state = states.Idle
                 self.init_time = now()
-                self.driver.next = None 
+                #self.driver.next = None 
 
         elif(self.state == states.Writing):
             if(self.wait >= self.sd_intf.timing['rcd']):
                 self.state     = states.Idle
                 self.init_time = now()
                 if(self.active_row != None):
+                    print " DATA : [WRITE] Addr:",self.addr," Data:",self.data
                     self.memory[self.active_row * 10000 + self.addr] = self.data
 
     def getState(self):
