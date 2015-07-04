@@ -157,10 +157,10 @@ def SdramCntl(host_intf, sd_intf, rst_i):
                 # all banks should be precharged after initialization
                 cmd_x.next   = PCHG_CMD_C
                 timer_x.next = RP_CYCLES_C  # set timer for precharge operation duration
-              #  state_x.next        = CntlStateType.INITRFSH
+                state_x.next = CntlStateType.INITRFSH
               
               ### tempory line should be change #####
-                state_x.next = CntlStateType.RW
+                #state_x.next = CntlStateType.RW
               #######################################
                 sAddr_x.next = ALL_BANKS_C  # select all banks precharge   
             
