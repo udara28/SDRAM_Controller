@@ -23,7 +23,9 @@ def sdram(sd_intf):
                 bank_state.nextState(curr_command)
 
             if(curr_command == commands.INVALID):
-                print " SDRAM : [ERROR] Invalid command is given" 
+                print " SDRAM : [ERROR] Invalid command is given"
+            elif(curr_command == commands.LOAD_MODE):
+                load_mode(sd_intf.bs,sd_intf.addr)
             elif(curr_command == commands.ACTIVE):
                 activate(sd_intf.bs,sd_intf.addr)
             elif(curr_command == commands.READ):
@@ -42,6 +44,20 @@ def sdram(sd_intf):
         else:
             bank_state.driver.next = None
 
+    def load_mode(bs,addr):
+        
+        mode  = None
+        cas   = int(addr[7:4])
+        burst = 2 ** int(addr[3:0])
+        if(addr[9] == 1):
+            mode = "Single "
+        else:
+            mode = "Burst  "
+        print "--------------------------"
+        print " Mode   | CAS   |   Burst "  
+        print "--------|-------|---------"
+        print " %s| %i     |   %i " % (mode,cas,burst)
+        print "--------------------------"
    
     def activate(bs,addr):
         if(curr_state[bs.val].active_row != None):
