@@ -70,10 +70,10 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     sDataDir_r   = Signal(INPUT_C)
     sDataDir_x   = Signal(INPUT_C)
     
-    activeRow_r  = [ Signal(intbv(0)[sd_intf.addr_width:]) ] * (2**BA_LEN_C) # each bank will have a active row
-    activeRow_x  = [ Signal(intbv(0)[sd_intf.addr_width:]) ] * (2**BA_LEN_C) 
-    activeFlag_r = [ Signal(bool(0)) ] * (2**BA_LEN_C)
-    activeFlag_x = [ Signal(bool(0)) ] * (2**BA_LEN_C)
+    activeRow_r  = [ Signal(intbv(0)[sd_intf.addr_width:]) for _ in range(2**BA_LEN_C) ]   # each bank will have a active row
+    activeRow_x  = [ Signal(intbv(0)[sd_intf.addr_width:]) for _ in range(2**BA_LEN_C) ]   
+    activeFlag_r = [ Signal(bool(0)) for _ in range(2**BA_LEN_C) ]
+    activeFlag_x = [ Signal(bool(0)) for _ in range(2**BA_LEN_C) ] 
     activeBank_r = Signal(intbv(0)[4:]) 
     activeBank_x = Signal(intbv(0)[4:]) # banks with active rows
     doActivate_s = Signal(bool(0))      # request row activation if a new row is needed to activate
@@ -98,29 +98,30 @@ def SdramCntl(host_intf, sd_intf, rst_i):
         sd_intf.we.next     = cmd_r[2]
         sd_intf.bs.next     = bank_s
         sd_intf.addr.next   = sAddr_r
-        if sDataDir_r == OUTPUT_C :
-            sd_intf.driver.next = sData_r
-        else :
-            sd_intf.driver.next = None
+        sd_intf.driver.next = sData_r if sDataDir_r == OUTPUT_C else None
+        #if sDataDir_r == OUTPUT_C :
+        #   sd_intf.driver.next = sData_r
+        #else :
+        #    sd_intf.driver.next = None
         sd_intf.dqml.next   = 0
         sd_intf.dqmh.next   = 0
         
     # pin assignment for HOST SIDE
     @always_comb
     def host_pin_map():
-        host_intf.done_o.next = rdPipeline_r.val[0] or wrPipeline_r.val[0]
-        host_intf.data_o.next = sdramData_r.val
-        sData_x.next          = host_intf.data_i.val
+        host_intf.done_o.next = rdPipeline_r[0] or wrPipeline_r[0]
+        host_intf.data_o.next = sdramData_r
+        sData_x.next          = host_intf.data_i
 
     # extract bank, row and column from controller address
     @always_comb
     def extract_addr():
         # extract bank
-        bank_s.next = host_intf.addr_i.val[BA_LEN_C+ROW_LEN_C+COL_LEN_C:ROW_LEN_C+COL_LEN_C]
+        bank_s.next = host_intf.addr_i[BA_LEN_C+ROW_LEN_C+COL_LEN_C:ROW_LEN_C+COL_LEN_C]
         # extract row
-        row_s.next  = host_intf.addr_i.val[ROW_LEN_C+COL_LEN_C:COL_LEN_C]
+        row_s.next  = host_intf.addr_i[ROW_LEN_C+COL_LEN_C:COL_LEN_C]
         # extract column
-        col_s.next  = host_intf.addr_i.val[COL_LEN_C:]
+        col_s.next  = host_intf.addr_i[COL_LEN_C:]
         
         
         
@@ -131,8 +132,8 @@ def SdramCntl(host_intf, sd_intf, rst_i):
         else :
             doActivate_s.next = False
             
-        rdPipeline_x.next = concat(NOP_C,rdPipeline_r.val[CAS_CYCLES_C+2:1])
-        wrPipeline_x.next = intbv(NOP_C)[len(wrPipeline_x):]
+   #     rdPipeline_x.next = concat(NOP_C,rdPipeline_r[CAS_CYCLES_C+2:1])
+#        wrPipeline_x.next = intbv(NOP_C)[CAS_CYCLES_C+2:]
         
         if rdPipeline_r[1] == READ_C :
             sdramData_x.next = sd_intf.dq
@@ -141,6 +142,9 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     
     @always_comb
     def comb_func():
+        
+        rdPipeline_x.next = concat(NOP_C,rdPipeline_r[CAS_CYCLES_C+2:1])
+        wrPipeline_x.next = intbv(NOP_C)[CAS_CYCLES_C+2:]
         
         if timer_r != 0 :
             timer_x.next = timer_r - 1
@@ -202,7 +206,7 @@ def SdramCntl(host_intf, sd_intf, rst_i):
                         cmd_x.next        = WRITE_CMD_C
                         sDataDir_x.next   = OUTPUT_C
                         sAddr_x.next      = col_s
-                        wrPipeline_x.next = intbv(1)[len(wrPipeline_x):]
+                        wrPipeline_x.next = intbv(1)[CAS_CYCLES_C+2:]
                 
                 else :
                     cmd_x.next = NOP_CMD_C

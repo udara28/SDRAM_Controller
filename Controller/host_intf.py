@@ -13,7 +13,7 @@ class host_intf(object):
         self.data_o     = Signal(intbv(0)[16:])
         self.done_o     = Signal(bool(0))
         self.rdPending_o= Signal(bool(0))
-        self.status_o   = Signal(bool(0))
+    #    self.status_o   = Signal(bool(0))
         
     def read(self,addr):
         self.addr_i.next = addr
