@@ -4,15 +4,16 @@ class host_intf(object):
     
     def __init__(self,clk):
         # Host side signals
-        self.clk_i     = clk
-        self.rst_i     = ResetSignal(0, active=0, async=True)
-        self.rd_i      = Signal(bool(0))
-        self.wr_i      = Signal(bool(0))
-        self.addr_i    = Signal(intbv(0)[12:])
-        self.data_i    = Signal(intbv(0)[16:])
-        self.data_o    = Signal(intbv(0)[16:])
-        self.done_o    = Signal(bool(0))
-        self.status_o  = Signal(bool(0))
+        self.clk_i      = clk
+        self.rst_i      = ResetSignal(0, active=0, async=True)
+        self.rd_i       = Signal(bool(0))
+        self.wr_i       = Signal(bool(0))
+        self.addr_i     = Signal(intbv(0)[12:])
+        self.data_i     = Signal(intbv(0)[16:])
+        self.data_o     = Signal(intbv(0)[16:])
+        self.done_o     = Signal(bool(0))
+        self.rdPending_o= Signal(bool(0))
+        self.status_o   = Signal(bool(0))
         
     def read(self,addr):
         self.addr_i.next = addr
