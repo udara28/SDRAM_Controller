@@ -4,6 +4,9 @@ class sd_intf(object):
 
     addr_width = 12
     data_width = 16
+    # number of rows and columns in sdram
+    NROWS_G    = 4096
+    NCOLS_G    = 512
 
     timing = { # timing details refer data sheet
         'init' : 100,    # min init interval
@@ -31,21 +34,21 @@ class sd_intf(object):
         self.dqmh   = Signal(bool(0))
         self.dq     = TristateSignal(intbv(0)[self.data_width:])
         self.driver = self.dq.driver()
-        
+
     # Written below are transactors for passing commands to sdram
-    
+
     def nop(self):
         # [NOP] cs ras cas we : L H H H
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,1,1,1
         yield self.clk.posedge
-        
+
     def activate(self,row_addr,bank_id=0):
         self.bs.next   = bank_id
         self.addr.next = row_addr
         # [ACTIVE] cs ras cas we : L L H H
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,0,1,1
         yield self.clk.posedge
-        
+
     def precharge(self,bank_id=None):
         if(bank_id == None):    # precharge all banks
             self.addr.next = 2**10  # A10 is high
@@ -55,18 +58,18 @@ class sd_intf(object):
         # [PRECHARGE] cs ras cas we : L L H L
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,0,1,0
         yield self.clk.posedge
-        
+
     def read(self,addr,bank_id=0):
         self.bs.next   = bank_id
         self.addr.next = addr
         # [READ] # cs ras cas we dqm : L H L H X
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,1,0,1
         yield self.clk.posedge
-        
+
     def write(self,addr,value,bank_id=0):
         self.bs.next     = bank_id
         self.addr.next   = addr
-        self.driver.next = value 
+        self.driver.next = value
         # [WRITE] # cs ras cas we dqm : L H L L X
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,1,0,0
         yield self.clk.posedge
