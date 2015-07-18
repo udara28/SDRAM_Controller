@@ -6,6 +6,7 @@ commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
 states   = enum("Uninitialized","Initialized","Idle","Activating","Active","Read","Reading","Read_rdy","Write","Writing")
 
 def sdram(sd_intf):
+    clk = 10 # clk frequance hard coded
 
     data = sd_intf.dq.driver()          # driver for bidirectional DQ port
 
@@ -13,6 +14,12 @@ def sdram(sd_intf):
     control_logic_inst = Control_Logic(curr_command,sd_intf)
 
     curr_state = [ State(0,sd_intf), State(1,sd_intf), State(2,sd_intf), State(3,sd_intf) ] # Represents the state of eah bank
+
+    # refresh variables
+    REF_CYCLES_C = int(sd_intf.timing['ref'] / clk )
+    RFSH_COUNT_C = sd_intf.NROWS_G
+    rfsh_timer = Signal(modbv(1,min=0,max=REF_CYCLES_C))
+    rfsh_count = Signal(intbv(0,min=0,max=RFSH_COUNT_C))
 
     @always(sd_intf.clk.posedge)
     def main_function():
@@ -34,7 +41,14 @@ def sdram(sd_intf):
                 write(sd_intf.bs,sd_intf.addr)
             elif(curr_command == commands.PRECHARGE):
                 precharge(sd_intf.bs,sd_intf.addr)
-                
+            elif(curr_command == commands.AUTO_REFRESH):
+                rfsh_count.next = rfsh_count + 1 if rfsh_timer != 0 else 0
+
+            rfsh_timer.next = (rfsh_timer + 1)
+            if rfsh_timer == 0 :
+                if rfsh_count < RFSH_COUNT_C :
+                    print " SDRAM : [ERROR] Refresh requirement is not met"
+
     @always(sd_intf.clk.negedge)
     def read_function():
         bank_state = curr_state[sd_intf.bs.val]
@@ -45,7 +59,7 @@ def sdram(sd_intf):
             bank_state.driver.next = None
 
     def load_mode(bs,addr):
-        
+
         mode  = None
         cas   = int(addr[7:4])
         burst = 2 ** int(addr[3:0])
@@ -54,11 +68,11 @@ def sdram(sd_intf):
         else:
             mode = "Burst  "
         print "--------------------------"
-        print " Mode   | CAS   |   Burst "  
+        print " Mode   | CAS   |   Burst "
         print "--------|-------|---------"
         print " %s| %i     |   %i " % (mode,cas,burst)
         print "--------------------------"
-   
+
     def activate(bs,addr):
         if(curr_state[bs.val].active_row != None):
             print " SDRAM : [ERROR] A row is already activated. Bank should be precharged first"
@@ -72,7 +86,7 @@ def sdram(sd_intf):
         if(curr_state[bs.val].active_row == None):
             print " SDRAM : [ERROR] A row should be activated before trying to read"
         else:
-            print " SDRAM : [READ] Commnad registered " 
+            print " SDRAM : [READ] Commnad registered "
 
     def write(bs,addr):
         if(curr_state[bs.val].active_row == None):
@@ -126,7 +140,7 @@ def Control_Logic(curr_command,sd_intf):
                     else:
                         # cs ras cas we dqm : L L L L X
                         curr_command.next = commands.LOAD_MODE
-    
+
     return decode
 
 class State:
@@ -181,7 +195,7 @@ class State:
         elif(self.state == states.Read_rdy):
                 self.state = states.Idle
                 self.init_time = now()
-                self.driver.next = None 
+                self.driver.next = None
 
         elif(self.state == states.Writing):
             if(self.wait >= self.sd_intf.timing['rcd']):
