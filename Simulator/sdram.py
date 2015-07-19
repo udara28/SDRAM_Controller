@@ -5,8 +5,8 @@ commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
 
 states   = enum("Uninitialized","Initialized","Idle","Activating","Active","Read","Reading","Read_rdy","Write","Writing")
 
-def sdram(sd_intf):
-    clk = 10 # clk frequance hard coded
+# show_state and show_command are variables to show/hide log messages
+def sdram(sd_intf,show_command=False):
 
     data = sd_intf.dq.driver()          # driver for bidirectional DQ port
 
@@ -16,15 +16,16 @@ def sdram(sd_intf):
     curr_state = [ State(0,sd_intf), State(1,sd_intf), State(2,sd_intf), State(3,sd_intf) ] # Represents the state of eah bank
 
     # refresh variables
-    REF_CYCLES_C = int(sd_intf.timing['ref'] / clk )
-    RFSH_COUNT_C = sd_intf.NROWS_G
+    REF_CYCLES_C = int(sd_intf.timing['ref'] / sd_intf.SDRAM_FREQ_C  )
+    RFSH_COUNT_C = sd_intf.SDRAM_NROWS_C
     rfsh_timer = Signal(modbv(1,min=0,max=REF_CYCLES_C))
     rfsh_count = Signal(intbv(0,min=0,max=RFSH_COUNT_C))
 
     @always(sd_intf.clk.posedge)
     def main_function():
         if(sd_intf.cke == 1):
-            print " SDRAM : [COMMAND] ", curr_command
+            if(show_command) :
+                print " SDRAM : [COMMAND] ", curr_command
 
             for bank_state in curr_state :
                 bank_state.nextState(curr_command)
@@ -161,7 +162,7 @@ class State:
         self.wait = now() - self.init_time
         if(self.state == states.Uninitialized):
             if(self.wait >= self.sd_intf.timing['init']):
-                print " BANK",self.bank_id,"STATE : [CHANGE] Uninitialized -> Initialized @ ", now()
+                #print " BANK",self.bank_id,"STATE : [CHANGE] Uninitialized -> Initialized @ ", now()
                 self.state     = states.Initialized
                 self.init_time = now()
                 #self.driver.next = 45

@@ -1,5 +1,6 @@
 from myhdl import *
 from Simulator import *
+from math import ceil
 
 def SdramCntl(host_intf, sd_intf, rst_i):
 
@@ -14,11 +15,20 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     MODE_C        = intbv("00_0_00_011_0_000")[12:] # mode command for set_mode command
 
     # generic parameters
+    FREQ_GHZ_G       = sd_intf.SDRAM_FREQ_C / 1000
     ENABLE_REFRESH_G = True
-    NROWS_G          = sd_intf.NROWS_G
+    NROWS_G          = sd_intf.SDRAM_NROWS_C
+    T_REF_G          = sd_intf.SDRAM_T_REF_C
+    T_INIT_G         = sd_intf.SDRAM_T_INIT_C   # min initialization interval (ns).
+    T_RAS_G          = sd_intf.SDRAM_T_RAS_C    # min interval between active to precharge commands (ns).
+    T_RCD_G          = sd_intf.SDRAM_T_RCD_C    # min interval between active and R/W commands (ns).
+    T_REF_G          = sd_intf.SDRAM_T_REF_C    # maximum refresh interval (ns).
+    T_RFC_G          = sd_intf.SDRAM_T_RFC_C    # duration of refresh operation (ns).
+    T_RP_G           = sd_intf.SDRAM_T_RP_C     # min precharge command duration (ns).
+    T_XSR_G          = sd_intf.SDRAM_T_XSR_C    # exit self-refresh time (ns).
 
     # delay constants
-    INIT_CYCLES_C = 10
+    INIT_CYCLES_C = int(ceil(T_INIT_G * FREQ_GHZ_G))
     RP_CYCLES_C   = 3
     RFC_CYCLES_C  = 10
     MODE_CYCLES_C = 3
@@ -56,8 +66,8 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     state_x = Signal(CntlStateType.INITWAIT)
 
     # timer registers
-    timer_r = Signal(intbv(0)[8:])                          # current sdram opt time
-    timer_x = Signal(intbv(0)[8:])
+    timer_r = Signal(intbv(0,min=0,max=INIT_CYCLES_C+1))                          # current sdram opt time
+    timer_x = Signal(intbv(0,min=0,max=INIT_CYCLES_C+1))
 
     refTimer_r = Signal(intbv(0,min=0,max=RFC_CYCLES_C))    # time between row refreshes
     refTimer_x = Signal(intbv(0,min=0,max=RFC_CYCLES_C))
