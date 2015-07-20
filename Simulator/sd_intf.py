@@ -10,15 +10,15 @@ class sd_intf(object):
     SDRAM_DATA_WIDTH_C           = 16         # Host & SDRAM data width.
     SDRAM_HADDR_WIDTH_C          = 24         # Host-side address width.
     SDRAM_SADDR_WIDTH_C          = 13         # SDRAM-side address width.
-    SDRAM_T_INIT_C               = 200000.0   # Min initialization interval (ns).
+    SDRAM_T_INIT_C               = 200.0#200000.0   # Min initialization interval (ns).
     SDRAM_T_RAS_C                = 45.0       # Min interval between active to precharge commands (ns).
     SDRAM_T_RCD_C                = 20.0       # Min interval between active and R/W commands (ns).
-    SDRAM_T_REF_C                = 64000000.0 # Maximum refresh interval (ns).
+    SDRAM_T_REF_C                = 640#64000000.0 # Maximum refresh interval (ns).
     SDRAM_T_RFC_C                = 65.0       # Duration of refresh operation (ns).
     SDRAM_T_RP_C                 = 20.0       # Min precharge command duration (ns).
     SDRAM_T_XSR_C                = 75.0       # Exit self-refresh time (ns).
 
-    SDRAM_FREQ_C                 = 100.0      # Operating frequency in MHz.
+    SDRAM_FREQ_C                 = 1.0#100.0      # Operating frequency in MHz.
     SDRAM_IN_PHASE_C             = True       # SDRAM and controller XESS on same or opposite clock edge.
     SDRAM_PIPE_EN_C              = False      # If true, enable pipelined read operations.
     SDRAM_ENABLE_REFRESH_C       = True       # If true, row refreshes are automatically inserted.
@@ -32,7 +32,7 @@ class sd_intf(object):
         'ras'  : 10,        # min interval between active prechargs
         'rcd'  : 10,        # min interval between active R/W
         'cas'  : 20,
-        'ref'  : 640,#64000000,  # max refresh interval
+        'ref'  : 64000000,  # max refresh interval
         'rfc'  : 65,        # refresh opertaion
         'rp'   : 20,        # min precharge
         'xsr'  : 75,        # exit self-refresh time

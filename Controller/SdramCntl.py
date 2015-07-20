@@ -15,7 +15,7 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     MODE_C        = intbv("00_0_00_011_0_000")[12:] # mode command for set_mode command
 
     # generic parameters
-    FREQ_GHZ_G       = sd_intf.SDRAM_FREQ_C / 1000
+    FREQ_GHZ_G       = int(ceil(sd_intf.SDRAM_FREQ_C / 1000))
     ENABLE_REFRESH_G = True
     NROWS_G          = sd_intf.SDRAM_NROWS_C
     T_REF_G          = sd_intf.SDRAM_T_REF_C
@@ -29,12 +29,12 @@ def SdramCntl(host_intf, sd_intf, rst_i):
 
     # delay constants
     INIT_CYCLES_C = int(ceil(T_INIT_G * FREQ_GHZ_G))
-    RP_CYCLES_C   = 3
-    RFC_CYCLES_C  = 10
-    MODE_CYCLES_C = 3
-    RCD_CYCLES_C  = 3
+    RP_CYCLES_C   = int(ceil(T_RP_G   * FREQ_GHZ_G))
+    RFC_CYCLES_C  = int(ceil(T_RFC_G  * FREQ_GHZ_G))
+    RCD_CYCLES_C  = int(ceil(T_RCD_G  * FREQ_GHZ_G))
+    RAS_CYCLES_C  = int(ceil(T_RAS_G  * FREQ_GHZ_G))
+    MODE_CYCLES_C = 2
     CAS_CYCLES_C  = 3
-    RAS_CYCLES_C  = 3
     WR_CYCLES_C   = 2
 
     # constant values
@@ -69,17 +69,17 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     timer_r = Signal(intbv(0,min=0,max=INIT_CYCLES_C+1))                          # current sdram opt time
     timer_x = Signal(intbv(0,min=0,max=INIT_CYCLES_C+1))
 
-    refTimer_r = Signal(intbv(0,min=0,max=RFC_CYCLES_C))    # time between row refreshes
-    refTimer_x = Signal(intbv(0,min=0,max=RFC_CYCLES_C))
+    refTimer_r = Signal(intbv(0,min=0,max=RFC_CYCLES_C+1))    # time between row refreshes
+    refTimer_x = Signal(intbv(0,min=0,max=RFC_CYCLES_C+1))
 
-    rasTimer_r = Signal(intbv(0,min=0,max=RAS_CYCLES_C))    # active to precharge time
-    rasTimer_x = Signal(intbv(0,min=0,max=RAS_CYCLES_C))
+    rasTimer_r = Signal(intbv(0,min=0,max=RAS_CYCLES_C+1))    # active to precharge time
+    rasTimer_x = Signal(intbv(0,min=0,max=RAS_CYCLES_C+1))
 
-    wrTimer_r  = Signal(intbv(0,min=0,max=WR_CYCLES_C))     # write to precharge time
-    wrTimer_x  = Signal(intbv(0,min=0,max=WR_CYCLES_C))
+    wrTimer_r  = Signal(intbv(0,min=0,max=WR_CYCLES_C+1))     # write to precharge time
+    wrTimer_x  = Signal(intbv(0,min=0,max=WR_CYCLES_C+1))
 
-    rfshCntr_r = Signal(intbv(0,min=0,max=NROWS_G))         # count refreshes that are needed
-    rfshCntr_x = Signal(intbv(0,min=0,max=NROWS_G))
+    rfshCntr_r = Signal(intbv(0,min=0,max=NROWS_G+1))         # count refreshes that are needed
+    rfshCntr_x = Signal(intbv(0,min=0,max=NROWS_G+1))
 
     # status signals
     activateInProgress_s = Signal(bool(0))
@@ -207,8 +207,6 @@ def SdramCntl(host_intf, sd_intf, rst_i):
 
     @always_comb
     def comb_func():
-
-
 
         rdPipeline_x.next = concat(NOP_C,rdPipeline_r[CAS_CYCLES_C+2:1])
         wrPipeline_x.next = intbv(NOP_C)[CAS_CYCLES_C+2:]

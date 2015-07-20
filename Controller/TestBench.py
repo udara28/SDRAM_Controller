@@ -30,4 +30,4 @@ sdramCntl_Inst = SdramCntl(host_intf_Inst,sd_intf_Inst,rst_i)
 test_readWrite_Inst = test_readWrite(host_intf_Inst,sd_intf_Inst)
 
 sim = Simulation(clkDriver_Inst,sdram_Inst,sdramCntl_Inst,test_readWrite_Inst)
-sim.run(750)
+sim.run(7500)
