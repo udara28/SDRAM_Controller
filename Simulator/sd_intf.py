@@ -13,7 +13,7 @@ class sd_intf(object):
     SDRAM_T_INIT_C               = 200.0#200000.0   # Min initialization interval (ns).
     SDRAM_T_RAS_C                = 45.0       # Min interval between active to precharge commands (ns).
     SDRAM_T_RCD_C                = 20.0       # Min interval between active and R/W commands (ns).
-    SDRAM_T_REF_C                = 640#64000000.0 # Maximum refresh interval (ns).
+    SDRAM_T_REF_C                = 640.0#64000000.0 # Maximum refresh interval (ns).
     SDRAM_T_RFC_C                = 65.0       # Duration of refresh operation (ns).
     SDRAM_T_RP_C                 = 20.0       # Min precharge command duration (ns).
     SDRAM_T_XSR_C                = 75.0       # Exit self-refresh time (ns).

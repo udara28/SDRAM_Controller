@@ -31,6 +31,7 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     INIT_CYCLES_C = int(ceil(T_INIT_G * FREQ_GHZ_G))
     RP_CYCLES_C   = int(ceil(T_RP_G   * FREQ_GHZ_G))
     RFC_CYCLES_C  = int(ceil(T_RFC_G  * FREQ_GHZ_G))
+    REF_CYCLES_C  = int(ceil(T_REF_G  * FREQ_GHZ_G / NROWS_G))
     RCD_CYCLES_C  = int(ceil(T_RCD_G  * FREQ_GHZ_G))
     RAS_CYCLES_C  = int(ceil(T_RAS_G  * FREQ_GHZ_G))
     MODE_CYCLES_C = 2
@@ -199,7 +200,7 @@ def SdramCntl(host_intf, sd_intf, rst_i):
         else :
             # on timeout, reload the timer with the interval between row refreshes
             # and increment the counter for the number of row refreshes that are needed
-            refTimer_x = RFC_CYCLES_C
+            refTimer_x = REF_CYCLES_C
             if ENABLE_REFRESH_G :
                 rfshCntr_x.next = rfshCntr_r + 1
             else :
@@ -237,7 +238,10 @@ def SdramCntl(host_intf, sd_intf, rst_i):
                 # refreshing state
                 cmd_x.next   = RFSH_CMD_C
                 timer_x.next = RFC_CYCLES_C
-                state_x.next = CntlStateType.INITSETMODE
+                print rfshCntr_r
+                rfshCntr_x.next = rfshCntr_r - 1
+                if rfshCntr_r == 1 :
+                    state_x.next = CntlStateType.INITSETMODE
 
             elif state_r == CntlStateType.INITSETMODE :
                 cmd_x.next   = MODE_CMD_C
@@ -257,13 +261,13 @@ def SdramCntl(host_intf, sd_intf, rst_i):
                             activeFlag_x[index].next = False
 
                 # for now leave row refresh need.. IT SHOULD COME HERE
-                if host_intf.rd_i == True :
-
+                elif host_intf.rd_i == True :
+                    print "read"
                     if doActivate_s == True :   # A new row need to be activated. PRECHARGE The bank
                         print "new row should be activated before read"
                     else :
                         cmd_x.next        = READ_CMD_C
-                        sDataDir_x.next   = INPUT_C
+                        sDataDir_x.next   = INPUT_C1
                         sAddr_x.next      = col_s
                         rdPipeline_x.next = concat(READ_C,rdPipeline_r[CAS_CYCLES_C+2:1])
 
@@ -295,6 +299,11 @@ def SdramCntl(host_intf, sd_intf, rst_i):
                 activeBank_x.next             = bank_s
                 activeRow_x[bank_s].next  = row_s
                 activeFlag_x[bank_s].next = True
+
+            elif state_r == CntlStateType.REFRESHROW :
+                cmd_x.next      = RFSH_CMD_C
+                timer_x.next    = RFC_CYCLES_C
+                state_x.next    = CntlStateType.RW
 
             else :
                 state_x.next    = CntlStateType.INITWAIT
