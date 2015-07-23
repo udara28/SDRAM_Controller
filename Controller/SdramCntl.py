@@ -37,6 +37,7 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     MODE_CYCLES_C = 2
     CAS_CYCLES_C  = 3
     WR_CYCLES_C   = 2
+    RFSH_OPS_C    = 8                            # number of refresh operations needed to init SDRAM.
 
     # constant values
     ALL_BANKS_C   = intbv("001000000000")[12:]       # value of CMDBIT to select all banks
@@ -70,8 +71,8 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     timer_r = Signal(intbv(0,min=0,max=INIT_CYCLES_C+1))                          # current sdram opt time
     timer_x = Signal(intbv(0,min=0,max=INIT_CYCLES_C+1))
 
-    refTimer_r = Signal(intbv(0,min=0,max=RFC_CYCLES_C+1))    # time between row refreshes
-    refTimer_x = Signal(intbv(0,min=0,max=RFC_CYCLES_C+1))
+    refTimer_r = Signal(intbv(REF_CYCLES_C,min=0,max=REF_CYCLES_C+1))    # time between row refreshes
+    refTimer_x = Signal(intbv(REF_CYCLES_C,min=0,max=REF_CYCLES_C+1))
 
     rasTimer_r = Signal(intbv(0,min=0,max=RAS_CYCLES_C+1))    # active to precharge time
     rasTimer_x = Signal(intbv(0,min=0,max=RAS_CYCLES_C+1))
@@ -117,6 +118,9 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     wrPipeline_r = Signal(intbv(0)[CAS_CYCLES_C+2:])
     wrPipeline_x = Signal(intbv(0)[CAS_CYCLES_C+2:])
 
+    ba_r   = Signal(intbv(0)[BA_LEN_C:])
+    ba_x   = Signal(intbv(0)[BA_LEN_C:])
+
     bank_s = Signal(intbv(0)[BA_LEN_C:])
     row_s  = Signal(intbv(0)[ROW_LEN_C:])
     col_s  = Signal(intbv(0)[COL_LEN_C:])
@@ -150,7 +154,10 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     @always_comb
     def extract_addr():
         # extract bank
+        # Multiple active rows logic has been removed for now
         bank_s.next = host_intf.addr_i[BA_LEN_C+ROW_LEN_C+COL_LEN_C:ROW_LEN_C+COL_LEN_C]
+        ba_x.next   = host_intf.addr_i[BA_LEN_C+ROW_LEN_C+COL_LEN_C:ROW_LEN_C+COL_LEN_C]
+
         # extract row
         row_s.next  = host_intf.addr_i[ROW_LEN_C+COL_LEN_C:COL_LEN_C]
         # extract column
@@ -195,16 +202,12 @@ def SdramCntl(host_intf, sd_intf, rst_i):
         rdInProgress_s.next = True if rdPipeline_r[CAS_CYCLES_C+2:2] != 0 else False
 
         # refresh timer
-        if refTimer_r != 0 :
-            refTimer_x.next = refTimer_r.next - 1
-        else :
+        refTimer_x.next = refTimer_r.next - 1 if refTimer_r != 0 else REF_CYCLES_C
+
+        if refTimer_r == 0 :
             # on timeout, reload the timer with the interval between row refreshes
             # and increment the counter for the number of row refreshes that are needed
-            refTimer_x = REF_CYCLES_C
-            if ENABLE_REFRESH_G :
-                rfshCntr_x.next = rfshCntr_r + 1
-            else :
-                rfshCntr_x.next = 0
+            rfshCntr_x.next = rfshCntr_r + 1 if ENABLE_REFRESH_G else 0
 
     @always_comb
     def comb_func():
@@ -225,20 +228,21 @@ def SdramCntl(host_intf, sd_intf, rst_i):
 
             elif state_r == CntlStateType.INITPCHG :
                 # all banks should be precharged after initialization
-                cmd_x.next   = PCHG_CMD_C
-                timer_x.next = RP_CYCLES_C  # set timer for precharge operation duration
-                state_x.next = CntlStateType.INITRFSH
-
+                cmd_x.next      = PCHG_CMD_C
+                timer_x.next    = RP_CYCLES_C  # set timer for precharge operation duration
+                state_x.next    = CntlStateType.INITRFSH
+                sAddr_x.next    = ALL_BANKS_C  # select all banks precharge
+                rfshCntr_x.next = RFSH_OPS_C
               ### tempory line should be change #####
                 #state_x.next = CntlStateType.RW
               #######################################
-                sAddr_x.next = ALL_BANKS_C  # select all banks precharge
+
 
             elif state_r == CntlStateType.INITRFSH :
                 # refreshing state
                 cmd_x.next   = RFSH_CMD_C
                 timer_x.next = RFC_CYCLES_C
-                print rfshCntr_r
+                print REF_CYCLES_C," -- ",rfshCntr_r
                 rfshCntr_x.next = rfshCntr_r - 1
                 if rfshCntr_r == 1 :
                     state_x.next = CntlStateType.INITSETMODE
@@ -262,33 +266,41 @@ def SdramCntl(host_intf, sd_intf, rst_i):
 
                 # for now leave row refresh need.. IT SHOULD COME HERE
                 elif host_intf.rd_i == True :
-                    print "read"
-                    if doActivate_s == True :   # A new row need to be activated. PRECHARGE The bank
-                        print "new row should be activated before read"
-                    else :
-                        cmd_x.next        = READ_CMD_C
-                        sDataDir_x.next   = INPUT_C1
-                        sAddr_x.next      = col_s
-                        rdPipeline_x.next = concat(READ_C,rdPipeline_r[CAS_CYCLES_C+2:1])
+                    if ba_x == ba_r :
+                        if doActivate_s == True :   # A new row need to be activated. PRECHARGE The bank
+                            # activate new row only if all previous activations, writes, reads are done
+                            if (activateInProgress_s == False) and (writeInProgress_s == False) and (rdInProgress_s == False) :
+                                cmd_x.next                    = PCHG_CMD_C
+                                timer_x.next                  = RP_CYCLES_C
+                                state_x.next                  = CntlStateType.ACTIVATE
+                                sAddr_x.next                  = ONE_BANK_C
+                                activeFlag_x[bank_s].next     = False
+                        elif rdInProgress_s == False:
+                            cmd_x.next        = READ_CMD_C
+                            sDataDir_x.next   = INPUT_C
+                            sAddr_x.next      = col_s
+                            rdPipeline_x.next = concat(READ_C,rdPipeline_r[CAS_CYCLES_C+2:1])
 
                 elif host_intf.wr_i == True :
+                    if ba_x == ba_r :
+                        if doActivate_s == True :
+                            # activate new row only if all previous activations, writes, reads are done
+                            if (activateInProgress_s == False) and (writeInProgress_s == False) and (rdInProgress_s == False) :
+                                cmd_x.next                    = PCHG_CMD_C
+                                timer_x.next                  = RP_CYCLES_C
+                                state_x.next                  = CntlStateType.ACTIVATE
+                                sAddr_x.next                  = ONE_BANK_C
+                                activeFlag_x[bank_s].next     = False
 
-                    if doActivate_s == True :
-                        cmd_x.next                    = PCHG_CMD_C
-                        timer_x.next                  = RP_CYCLES_C
-                        state_x.next                  = CntlStateType.ACTIVATE
-                        sAddr_x.next                  = ONE_BANK_C
-                        activeFlag_x[bank_s].next = False
-
-                    else :
-                        cmd_x.next        = WRITE_CMD_C
-                        sDataDir_x.next   = OUTPUT_C
-                        sAddr_x.next      = col_s
-                        wrPipeline_x.next = intbv(1)[CAS_CYCLES_C+2:]
+                        elif rdInProgress_s == False :
+                            cmd_x.next        = WRITE_CMD_C
+                            sDataDir_x.next   = OUTPUT_C
+                            sAddr_x.next      = col_s
+                            wrPipeline_x.next = intbv(1)[CAS_CYCLES_C+2:]
 
                 else :
-                    cmd_x.next = NOP_CMD_C
-
+                    cmd_x.next   = NOP_CMD_C
+                    state_x.next = CntlStateType.RW
 
 
             elif state_r == CntlStateType.ACTIVATE :
@@ -321,6 +333,7 @@ def SdramCntl(host_intf, sd_intf, rst_i):
         sdramData_r.next  = sdramData_x
         wrPipeline_r.next = wrPipeline_x
         rdPipeline_r.next = rdPipeline_x
+        ba_r.next         = ba_x
         # timers
         timer_r.next      = timer_x
         rasTimer_r.next   = rasTimer_x
