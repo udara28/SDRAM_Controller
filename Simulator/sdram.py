@@ -1,9 +1,36 @@
 from myhdl import *
+from Simulator import *
+from math import ceil
 
 commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
                     "PRECHARGE","AUTO_REFRESH","LOAD_MODE","OUTPUT_EN","OUTPUT_Z","INVALID")
 
 states   = enum("Uninitialized","Initialized","Idle","Activating","Active","Read","Reading","Read_rdy","Write","Writing")
+
+# generic parameters
+FREQ_GHZ_G       = int(ceil(sd_intf.SDRAM_FREQ_C / 1000))
+ENABLE_REFRESH_G = True
+NROWS_G          = sd_intf.SDRAM_NROWS_C
+T_REF_G          = sd_intf.SDRAM_T_REF_C
+T_INIT_G         = sd_intf.SDRAM_T_INIT_C   # min initialization interval (ns).
+T_RAS_G          = sd_intf.SDRAM_T_RAS_C    # min interval between active to precharge commands (ns).
+T_RCD_G          = sd_intf.SDRAM_T_RCD_C    # min interval between active and R/W commands (ns).
+T_REF_G          = sd_intf.SDRAM_T_REF_C    # maximum refresh interval (ns).
+T_RFC_G          = sd_intf.SDRAM_T_RFC_C    # duration of refresh operation (ns).
+T_RP_G           = sd_intf.SDRAM_T_RP_C     # min precharge command duration (ns).
+T_XSR_G          = sd_intf.SDRAM_T_XSR_C    # exit self-refresh time (ns).
+
+# delay constants
+INIT_CYCLES_C = int(ceil(T_INIT_G * FREQ_GHZ_G))
+RP_CYCLES_C   = int(ceil(T_RP_G   * FREQ_GHZ_G))
+RFC_CYCLES_C  = int(ceil(T_RFC_G  * FREQ_GHZ_G))
+REF_CYCLES_C  = int(ceil(T_REF_G  * FREQ_GHZ_G / NROWS_G))
+RCD_CYCLES_C  = int(ceil(T_RCD_G  * FREQ_GHZ_G))
+RAS_CYCLES_C  = int(ceil(T_RAS_G  * FREQ_GHZ_G))
+MODE_CYCLES_C = 2
+CAS_CYCLES_C  = 3
+WR_CYCLES_C   = 2
+RFSH_OPS_C    = 8                            # number of refresh operations needed to init SDRAM.
 
 # show_state and show_command are variables to show/hide log messages
 def sdram(sd_intf,show_command=False):
@@ -157,14 +184,15 @@ class State:
         self.active_row = None
         self.addr       = None
         self.data       = None
+        self.tick       = 0
 
     def nextState(self,curr_command):
-        self.wait = now() - self.init_time
+        self.wait = self.wait + 1
         if(self.state == states.Uninitialized):
-            if(self.wait >= self.sd_intf.timing['init']):
-                #print " BANK",self.bank_id,"STATE : [CHANGE] Uninitialized -> Initialized @ ", now()
+            if(self.wait >= INIT_CYCLES_C):
+                print " BANK",self.bank_id,"STATE : [CHANGE] Uninitialized -> Initialized @ ", now()
                 self.state     = states.Initialized
-                self.init_time = now()
+                #self.init_time = now(
                 #self.driver.next = 45
                 self.wait      = 0
 
@@ -173,35 +201,40 @@ class State:
             # Reading command
             if(curr_command ==  commands.READ  and self.bank_id == self.sd_intf.bs.val):
                 self.state     = states.Reading
-                self.init_time = now()
+                #self.init_time = now()
+                self.wait      = 0
                 if(self.sd_intf != None):
                     self.addr  = self.sd_intf.addr.val
             # Writing command
             elif(curr_command == commands.WRITE and self.bank_id == self.sd_intf.bs.val):
                 self.state     = states.Writing
-                self.init_time = now()
+                #self.init_time = now()
+                self.wait      = 0
                 if(self.sd_intf != None):
                     self.addr  = self.sd_intf.addr.val
                     self.data  = self.sd_intf.dq.val
 
         elif(self.state == states.Reading):
             #self.data = self.memory[self.active_row * 10000 + self.addr]
-            if(self.wait >= self.sd_intf.timing['cas']):
+            if(self.wait >= CAS_CYCLES_C):
                 self.state     = states.Read_rdy
-                self.init_time = now()
+                #self.init_time = now()
+                self.wait = 0
                 if(self.active_row != None):
                     self.data = self.memory[self.active_row * 10000 + self.addr]
                 print " STATE : [READ] Data Ready @ ", now()
 
         elif(self.state == states.Read_rdy):
                 self.state = states.Idle
-                self.init_time = now()
+                #self.init_time = now()
+                self.wait = 0
                 self.driver.next = None
 
         elif(self.state == states.Writing):
             if(self.wait >= self.sd_intf.timing['rcd']):
                 self.state     = states.Idle
-                self.init_time = now()
+                #self.init_time = now()
+                self.wait      = 0
                 if(self.active_row != None):
                     print " DATA : [WRITE] Addr:",self.addr," Data:",self.data
                     self.memory[self.active_row * 10000 + self.addr] = self.data

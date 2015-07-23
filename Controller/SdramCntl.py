@@ -176,6 +176,7 @@ def SdramCntl(host_intf, sd_intf, rst_i):
 #        wrPipeline_x.next = intbv(NOP_C)[CAS_CYCLES_C+2:]
 
         if rdPipeline_r[1] == READ_C :
+            print "reading at ",now()
             sdramData_x.next = sd_intf.dq
         else :
             sdramData_x.next = sdramData_r
