@@ -8,7 +8,7 @@ commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
 states   = enum("Uninitialized","Initialized","Idle","Activating","Active","Read","Reading","Read_rdy","Write","Writing")
 
 # generic parameters
-FREQ_GHZ_G       = int(ceil(sd_intf.SDRAM_FREQ_C / 1000))
+FREQ_GHZ_G       = sd_intf.SDRAM_FREQ_C / 1000
 ENABLE_REFRESH_G = True
 NROWS_G          = sd_intf.SDRAM_NROWS_C
 T_REF_G          = sd_intf.SDRAM_T_REF_C
@@ -25,7 +25,7 @@ INIT_CYCLES_C = int(ceil(T_INIT_G * FREQ_GHZ_G))
 RP_CYCLES_C   = int(ceil(T_RP_G   * FREQ_GHZ_G))
 RFC_CYCLES_C  = int(ceil(T_RFC_G  * FREQ_GHZ_G))
 REF_CYCLES_C  = int(ceil(T_REF_G  * FREQ_GHZ_G / NROWS_G))
-RCD_CYCLES_C  = int(ceil(T_RCD_G  * FREQ_GHZ_G))
+RCD_CYCLES_C  = int(ceil(T_RCD_G  * FREQ_GHZ_G/10))
 RAS_CYCLES_C  = int(ceil(T_RAS_G  * FREQ_GHZ_G))
 MODE_CYCLES_C = 2
 CAS_CYCLES_C  = 3
@@ -216,13 +216,13 @@ class State:
 
         elif(self.state == states.Reading):
             #self.data = self.memory[self.active_row * 10000 + self.addr]
-            if(self.wait >= CAS_CYCLES_C):
+            if(self.wait >= CAS_CYCLES_C - 1):
                 self.state     = states.Read_rdy
                 #self.init_time = now()
                 self.wait = 0
                 if(self.active_row != None):
                     self.data = self.memory[self.active_row * 10000 + self.addr]
-                print " STATE : [READ] Data Ready @ ", now()
+                print " STATE : [READ] Data Ready @ ", now(), " value : ",self.data
 
         elif(self.state == states.Read_rdy):
                 self.state = states.Idle
@@ -231,7 +231,7 @@ class State:
                 self.driver.next = None
 
         elif(self.state == states.Writing):
-            if(self.wait >= self.sd_intf.timing['rcd']):
+            if(self.wait >= RCD_CYCLES_C):
                 self.state     = states.Idle
                 #self.init_time = now()
                 self.wait      = 0

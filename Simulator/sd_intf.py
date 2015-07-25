@@ -18,7 +18,7 @@ class sd_intf(object):
     SDRAM_T_RP_C                 = 20.0       # Min precharge command duration (ns).
     SDRAM_T_XSR_C                = 75.0       # Exit self-refresh time (ns).
 
-    SDRAM_FREQ_C                 = 1.0#100.0      # Operating frequency in MHz.
+    SDRAM_FREQ_C                 = 100.0      # Operating frequency in MHz.
     SDRAM_IN_PHASE_C             = True       # SDRAM and controller XESS on same or opposite clock edge.
     SDRAM_PIPE_EN_C              = False      # If true, enable pipelined read operations.
     SDRAM_ENABLE_REFRESH_C       = True       # If true, row refreshes are automatically inserted.
