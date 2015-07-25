@@ -2,7 +2,7 @@ from myhdl import *
 from Simulator import *
 from math import ceil
 
-def SdramCntl(host_intf, sd_intf, rst_i):
+def SdramCntl(host_intf, sd_intf):
 
     # commands to SDRAM    ce ras cas we dqml dqmh
     NOP_CMD_C     = intbv("011100")[6:]  #0,1,1,1,0,0
@@ -146,9 +146,10 @@ def SdramCntl(host_intf, sd_intf, rst_i):
     # pin assignment for HOST SIDE
     @always_comb
     def host_pin_map():
-        host_intf.done_o.next = rdPipeline_r[0] or wrPipeline_r[0]
-        host_intf.data_o.next = sdramData_r
-        sData_x.next          = host_intf.data_i
+        host_intf.done_o.next      = rdPipeline_r[0] or wrPipeline_r[0]
+        host_intf.data_o.next      = sdramData_r
+        host_intf.rdPending_o.next = rdInProgress_s
+        sData_x.next               = host_intf.data_i
 
     # extract bank, row and column from controller address
     @always_comb
@@ -179,6 +180,11 @@ def SdramCntl(host_intf, sd_intf, rst_i):
         else :
             sdramData_x.next = sdramData_r
 
+        # update status signals
+        activateInProgress_s.next = True    if rasTimer_r != 0 else False
+        writeInProgress_s.next    = True    if wrTimer_r  != 0 else False
+        rdInProgress_s.next       = True    if rdPipeline_r[CAS_CYCLES_C+2:1] != 0 else False
+
     @always_comb
     def comb_func():
 
@@ -188,22 +194,13 @@ def SdramCntl(host_intf, sd_intf, rst_i):
         ##################### Update the timers ###########################
 
         # row activation timer
-        if rasTimer_r != 0 :
-            rasTimer_x.next           = rasTimer_r - 1
-            activateInProgress_s.next = True
-        else :
-            rasTimer_x.next           = rasTimer_r  # keep the value at zero
-            activateInProgress_s.next   = False
+        rasTimer_x.next = rasTimer_r - 1 if rasTimer_r != 0 else rasTimer_r
 
         # write operation timer
-        wrTimer_x.next         = wrTimer_r - 1 if wrTimer_r != 0 else wrTimer_r
-        writeInProgress_s.next = True          if wrTimer_r != 0 else False
-
-        # read operation
-        rdInProgress_s.next = True if rdPipeline_r[CAS_CYCLES_C+2:1] != 0 else False
+        wrTimer_x.next  = wrTimer_r - 1  if wrTimer_r != 0 else wrTimer_r
 
         # refresh timer
-        refTimer_x.next = refTimer_r.next - 1 if refTimer_r != 0 else REF_CYCLES_C
+        refTimer_x.next = refTimer_r - 1 if refTimer_r != 0 else REF_CYCLES_C
 
         if refTimer_r == 0 :
             # on timeout, reload the timer with the interval between row refreshes
@@ -319,7 +316,7 @@ def SdramCntl(host_intf, sd_intf, rst_i):
             else :
                 state_x.next    = CntlStateType.INITWAIT
 
-    @always_seq(sd_intf.clk.posedge, rst_i)
+    @always_seq(sd_intf.clk.posedge, host_intf.rst_i)
     def seq_func():
 
         state_r.next      = state_x

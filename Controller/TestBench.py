@@ -27,7 +27,7 @@ host_intf_Inst      = host_intf(clk_i)
 
 sdram_Inst = sdram(sd_intf_Inst,show_command=False)
 #sdramCntl_Inst = SdramCntl(host_intf_Inst,sd_intf_Inst,rst_i)
-sdramCntl_Inst = traceSignals(SdramCntl,host_intf_Inst,sd_intf_Inst,rst_i)
+sdramCntl_Inst = traceSignals(SdramCntl,host_intf_Inst,sd_intf_Inst)
 
 test_readWrite_Inst = test_readWrite(host_intf_Inst,sd_intf_Inst)
 
