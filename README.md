@@ -50,7 +50,7 @@ Host side interface of the controller is present on the file host_intf.py
 * WRITE : To perform write operation write the address to addr and the data to data_i and drive write_i high. Hold the values until done_o goes high.
 * READ  : To perform read operation write the read address to addr and wait until don_o goes high. Read the value of data_o as soon as done_o goes high. 
 
-* MyHDL allows to write transactors in the file host_intf.py file where the host side interface is defined. Transactors furthur simplifies usage of the controller. With transactors read and write looks like follows
+* MyHDL allows to write transactors in the host_intf.py file where the host side interface is defined. Transactors furthur simplifies usage of the controller. With transactors read and write looks like follows
 
 ```python
         yield host_intf.write(120,23)

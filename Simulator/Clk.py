@@ -2,7 +2,7 @@ from myhdl import *
 
 def clkDriver(clk):
 
-    halfPeriod = delay(5)
+    halfPeriod = delay(1)
 
     @always(halfPeriod)
     def driveClk():
