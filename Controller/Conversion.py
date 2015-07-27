@@ -13,3 +13,4 @@ host_intf_Inst      = host_intf(clk_i)
 sdramCntl_Inst = SdramCntl(host_intf_Inst,sd_intf_Inst)
 
 toVerilog(SdramCntl,host_intf_Inst,sd_intf_Inst)
+#toVHDL(SdramCntl,host_intf_Inst,sd_intf_Inst)

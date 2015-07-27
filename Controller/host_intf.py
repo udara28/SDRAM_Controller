@@ -5,7 +5,7 @@ class host_intf(object):
     def __init__(self,clk):
         # Host side signals
         self.clk_i      = clk
-        self.rst_i      = ResetSignal(0, active=0, async=True)
+        self.rst_i      = ResetSignal(0, active=1, async=True)
         self.rd_i       = Signal(bool(0))
         self.wr_i       = Signal(bool(0))
         self.addr_i     = Signal(intbv(0)[12:])
@@ -30,3 +30,9 @@ class host_intf(object):
     def nop(self):
         self.rd_i.next = 0
         self.wr_i.next = 0
+
+    def waitUntilDone(self):
+        yield self.done_o.posedge
+
+    def readData(self):
+        return self.data_o.val
