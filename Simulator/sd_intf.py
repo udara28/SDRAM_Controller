@@ -10,7 +10,7 @@ class sd_intf(object):
     SDRAM_DATA_WIDTH_C           = 16         # Host & SDRAM data width.
     SDRAM_HADDR_WIDTH_C          = 24         # Host-side address width.
     SDRAM_SADDR_WIDTH_C          = 13         # SDRAM-side address width.
-    SDRAM_T_INIT_C               = 200.0#200000.0   # Min initialization interval (ns).
+    SDRAM_T_INIT_C               = 20000.0 #200000.0   # Min initialization interval (ns).
     SDRAM_T_RAS_C                = 45.0       # Min interval between active to precharge commands (ns).
     SDRAM_T_RCD_C                = 20.0       # Min interval between active and R/W commands (ns).
     SDRAM_T_REF_C                = 64000000.0 # Maximum refresh interval (ns).
@@ -27,6 +27,18 @@ class sd_intf(object):
     SDRAM_BEG_ADDR_C             = 16         #00_0000#;  -- Beginning SDRAM address.
     SDRAM_END_ADDR_C             = 16         #FF_FFFF#;  -- Ending SDRAM address.
 
+    SDRAM_NOP_CMD_C     = intbv("0111")[4:]  #0,1,1,1,0,0
+    SDRAM_ACTIVE_CMD_C  = intbv("0011")[4:]  #0,0,1,1,0,0
+    SDRAM_READ_CMD_C    = intbv("0101")[4:]  # 0,1,0,1,0,0
+    SDRAM_WRITE_CMD_C   = intbv("0100")[4:]  # 0,1,0,0,0,0
+    SDRAM_PCHG_CMD_C    = intbv("0010")[4:]  # 0,0,1,0,0,0
+    SDRAM_MODE_CMD_C    = intbv("0000")[4:]  # 0,0,0,0,0,0
+    SDRAM_RFSH_CMD_C    = intbv("0001")[4:]  # 0,0,0,1,0,0
+    SDRAM_MODE_C        = intbv("00_0_00_011_0_000")[12:] # mode command for set_mode command
+
+    SDRAM_ALL_BANKS_C   = intbv("001000000000")[12:]       # value of CMDBIT to select all banks
+    SDRAM_ONE_BANK_C    = intbv("000000000000")[12:]
+
     timing = { # timing details refer data sheet
         'init' : 100,       # min init interval
         'ras'  : 10,        # min interval between active prechargs
@@ -39,9 +51,8 @@ class sd_intf(object):
         'wr'   : 55,        # @todo ...
     }
 
-    def __init__(self,clk):
+    def __init__(self):
 
-        self.clk    = clk
         self.cke    = Signal(bool(0))
         self.cs     = Signal(bool(0))
         self.cas    = Signal(bool(0))
