@@ -14,9 +14,9 @@ To run the tests myhdl and SDRAM_Controller should be included in the PYTHONPATH
 ```bash
 export PYTHONPATH = $PYTHONPATH:<path to myhdl>:<path to SDRAM_Controller>
 
-python <path to SDRAM_Controller>/Simulator/test/test_sdram.py
+python <path to SDRAM_Controller>/test_sdram.py
 
-python <path to SDRAM_Controller>/Controller/TestBench.py
+python <path to SDRAM_Controller>/test_controller.py
 ```
 ## Simulator ##
 
@@ -41,6 +41,8 @@ The controller is written reffering the VHDL designed by xesscorp which can be f
 
 Sdram controller make it easy to access the sdram. The host logic can use the sdram more likely an sram because of the controller.
 Host side interface of the controller is present on the file host_intf.py
+
+![alt tag](http://1.bp.blogspot.com/-7NdtaBXzLTk/VcwHf4cldVI/AAAAAAAAAbg/9GWwOfUk1lc/s1600/controller.png)
 
 ### Instructions ###
 
