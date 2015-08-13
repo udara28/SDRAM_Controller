@@ -1,7 +1,9 @@
 from myhdl import *
-from Simulator import *
 from SdramCntl import *
-from host_intf import host_intf
+from Clk import *
+from sdram import *
+from host_intf import *
+from sd_intf import *
 
 def test_readWrite(host_intf,sd_intf):
 
@@ -22,12 +24,12 @@ clk_i = Signal(bool(0))
 rst_i = ResetSignal(0,active=1,async=True)
 
 clkDriver_Inst      = clkDriver(clk_i)
-sd_intf_Inst        = sd_intf(clk_i)
-host_intf_Inst      = host_intf(clk_i)
+sd_intf_Inst        = sd_intf()
+host_intf_Inst      = host_intf()
 
-sdram_Inst = sdram(sd_intf_Inst,show_command=False)
-#sdramCntl_Inst = SdramCntl(host_intf_Inst,sd_intf_Inst,rst_i)
-sdramCntl_Inst = traceSignals(SdramCntl,host_intf_Inst,sd_intf_Inst,rst_i)
+sdram_Inst = sdram(clk_i,sd_intf_Inst,show_command=False)
+sdramCntl_Inst = MySdramCntl(clk_i,host_intf_Inst,sd_intf_Inst)
+#sdramCntl_Inst = traceSignals(MySdramCntl,host_intf_Inst,sd_intf_Inst)
 
 test_readWrite_Inst = test_readWrite(host_intf_Inst,sd_intf_Inst)
 

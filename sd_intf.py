@@ -1,8 +1,9 @@
 from myhdl import *
+from math import log
 
 class sd_intf(object):
 
-    addr_width = 12
+    addr_width = 13
     data_width = 16
     # constant for sdram
     SDRAM_NROWS_C                = 8192       # Number of rows in SDRAM array.
@@ -10,7 +11,7 @@ class sd_intf(object):
     SDRAM_DATA_WIDTH_C           = 16         # Host & SDRAM data width.
     SDRAM_HADDR_WIDTH_C          = 24         # Host-side address width.
     SDRAM_SADDR_WIDTH_C          = 13         # SDRAM-side address width.
-    SDRAM_T_INIT_C               = 200.0#200000.0   # Min initialization interval (ns).
+    SDRAM_T_INIT_C               = 20000.0 #200000.0   # Min initialization interval (ns).
     SDRAM_T_RAS_C                = 45.0       # Min interval between active to precharge commands (ns).
     SDRAM_T_RCD_C                = 20.0       # Min interval between active and R/W commands (ns).
     SDRAM_T_REF_C                = 64000000.0 # Maximum refresh interval (ns).
@@ -27,6 +28,18 @@ class sd_intf(object):
     SDRAM_BEG_ADDR_C             = 16         #00_0000#;  -- Beginning SDRAM address.
     SDRAM_END_ADDR_C             = 16         #FF_FFFF#;  -- Ending SDRAM address.
 
+    SDRAM_NOP_CMD_C     = intbv("0111")[4:]  #0,1,1,1,0,0
+    SDRAM_ACTIVE_CMD_C  = intbv("0011")[4:]  #0,0,1,1,0,0
+    SDRAM_READ_CMD_C    = intbv("0101")[4:]  # 0,1,0,1,0,0
+    SDRAM_WRITE_CMD_C   = intbv("0100")[4:]  # 0,1,0,0,0,0
+    SDRAM_PCHG_CMD_C    = intbv("0010")[4:]  # 0,0,1,0,0,0
+    SDRAM_MODE_CMD_C    = intbv("0000")[4:]  # 0,0,0,0,0,0
+    SDRAM_RFSH_CMD_C    = intbv("0001")[4:]  # 0,0,0,1,0,0
+    SDRAM_MODE_C        = intbv("00_0_00_011_0_000")[12:] # mode command for set_mode command
+
+    SDRAM_ALL_BANKS_C   = intbv("001000000000")[12:]       # value of CMDBIT to select all banks
+    SDRAM_ONE_BANK_C    = intbv("000000000000")[12:]
+
     timing = { # timing details refer data sheet
         'init' : 100,       # min init interval
         'ras'  : 10,        # min interval between active prechargs
@@ -39,9 +52,8 @@ class sd_intf(object):
         'wr'   : 55,        # @todo ...
     }
 
-    def __init__(self,clk):
+    def __init__(self):
 
-        self.clk    = clk
         self.cke    = Signal(bool(0))
         self.cs     = Signal(bool(0))
         self.cas    = Signal(bool(0))
@@ -52,23 +64,34 @@ class sd_intf(object):
         self.dqml   = Signal(bool(0))
         self.dqmh   = Signal(bool(0))
         self.dq     = TristateSignal(intbv(0)[self.data_width:])
-        self.driver = self.dq.driver()
 
     # Written below are transactors for passing commands to sdram
 
-    def nop(self):
+    def nop(self,clk):
         # [NOP] cs ras cas we : L H H H
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,1,1,1
-        yield self.clk.posedge
+        yield clk.posedge
 
-    def activate(self,row_addr,bank_id=0):
+    def activate(self,clk,row_addr,bank_id=0):
         self.bs.next   = bank_id
         self.addr.next = row_addr
         # [ACTIVE] cs ras cas we : L L H H
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,0,1,1
-        yield self.clk.posedge
+        yield clk.posedge
 
-    def precharge(self,bank_id=None):
+    def loadMode(self,clk,mode='burst',cas=3,burst=1):
+	addr = 0
+	if(mode.lower() == 'single'):
+	    addr = addr + 2**9
+	addr = addr + cas*(2**4)
+	addr = addr + int(log(burst,2))
+	self.addr.next = addr
+        # [LOAD_MODE] cs ras cas we dqm : L L L L X
+        self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,0,0,0
+	yield clk.posedge
+	yield clk.posedge
+
+    def precharge(self,clk,bank_id=None):
         if(bank_id == None):    # precharge all banks
             self.addr.next = 2**10  # A10 is high
         else:
@@ -76,21 +99,25 @@ class sd_intf(object):
             self.bs.next   = bank_id
         # [PRECHARGE] cs ras cas we : L L H L
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,0,1,0
-        yield self.clk.posedge
+        yield clk.posedge
 
-    def read(self,addr,bank_id=0):
+    def read(self,clk,addr,bank_id=0):
         self.bs.next   = bank_id
         self.addr.next = addr
         # [READ] # cs ras cas we dqm : L H L H X
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,1,0,1
-        yield self.clk.posedge
+        yield clk.posedge
+	yield clk.posedge
 
-    def write(self,addr,value,bank_id=0):
+    def write(self,clk,driver,addr,value,bank_id=0):
         self.bs.next     = bank_id
         self.addr.next   = addr
-        self.driver.next = value
+        driver.next = value
         # [WRITE] # cs ras cas we dqm : L H L L X
         self.cs.next,self.ras.next,self.cas.next,self.we.next = 0,1,0,0
-        yield self.clk.posedge
-        yield self.clk.posedge
-        self.driver.next = None
+        yield clk.posedge
+        yield clk.posedge
+        driver.next = None
+
+    def getDriver(self):
+	return self.dq.driver()

@@ -1,5 +1,5 @@
 from myhdl import *
-from Simulator import *
+from sd_intf import sd_intf
 from math import ceil
 
 commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
@@ -33,7 +33,7 @@ WR_CYCLES_C   = 2
 RFSH_OPS_C    = 8                            # number of refresh operations needed to init SDRAM.
 
 # show_state and show_command are variables to show/hide log messages
-def sdram(sd_intf,show_command=False):
+def sdram(clk,sd_intf,show_command=False):
 
     data = sd_intf.dq.driver()          # driver for bidirectional DQ port
 
@@ -48,7 +48,7 @@ def sdram(sd_intf,show_command=False):
     rfsh_timer = Signal(modbv(1,min=0,max=REF_CYCLES_C))
     rfsh_count = Signal(intbv(0,min=0,max=RFSH_COUNT_C))
 
-    @always(sd_intf.clk.posedge)
+    @always(clk.posedge)
     def main_function():
         if(sd_intf.cke == 1):
             if(show_command) :
@@ -77,7 +77,7 @@ def sdram(sd_intf,show_command=False):
                 if rfsh_count < RFSH_COUNT_C :
                     print " SDRAM : [ERROR] Refresh requirement is not met"
 
-    @always(sd_intf.clk.negedge)
+    @always(clk.negedge)
     def read_function():
         bank_state = curr_state[sd_intf.bs.val]
         if(bank_state.state == states.Read_rdy or bank_state.state == states.Reading):
