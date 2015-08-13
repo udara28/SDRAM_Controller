@@ -29,7 +29,7 @@ This simulator prints several types of messages to the console.
 
 | Output                                         | Description                                                                             |
 |------------------------------------------------|-----------------------------------------------------------------------------------------|
-|SDRAM : [COMMAND]  command-name                 | In every possitive edge of the clock cycle sdram will print the current command issued. (This would appear if onle show_command is set to True. Default is False) |
+|SDRAM : [COMMAND]  command-name                 | In every possitive edge of the clock cycle sdram will print the current command issued. (This would appear only if show_command is set to True. Default is False) |
 |STATE : [CHANGE] old-state -> new-state @  time | Each bank can be in different state. This would print the state transition and the time |
 |DATA : [WRITE] Addr: addr  Data: value          | This print happens at the moment when data is written to the memory. There is a few cycle delay between the time write command appear in the pins and the time when actual data is written to the memory |
 |STATE : [READ] Data Ready @  time               | This is a very important print. It appears when sdram start driving the data bus with the read value. Since the sdram will only drive the bus for a limited time the controller should extract the data right after this time |
