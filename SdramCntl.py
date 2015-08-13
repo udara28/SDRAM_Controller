@@ -1,8 +1,9 @@
 from myhdl import *
-from Simulator import *
-from math import ceil
+from math import ceil,log
+from sd_intf import *
+from host_intf import *
 
-def SdramCntl(clk_i,host_intf, sd_intf):
+def MySdramCntl(clk_i,host_intf, sd_intf):
 
     # commands to SDRAM    ce ras cas we dqml dqmh
     NOP_CMD_C     = int(sd_intf.SDRAM_NOP_CMD_C)     #intbv("011100")[6:]  #0,1,1,1,0,0
@@ -48,8 +49,8 @@ def SdramCntl(clk_i,host_intf, sd_intf):
     READ_C        = bool(1)
     WRITE_C       = bool(1)
     BA_LEN_C      = 2
-    COL_LEN_C     = 10
-    ROW_LEN_C     = 10
+    COL_LEN_C     = int(log(sd_intf.SDRAM_NCOLS_C,2))
+    ROW_LEN_C     = int(log(sd_intf.SDRAM_NROWS_C,2))
 
     # states of the SDRAM controller state machine
     CntlStateType = enum(
@@ -98,6 +99,8 @@ def SdramCntl(clk_i,host_intf, sd_intf):
     sData_r = Signal(intbv(0)[sd_intf.data_width:])
     sData_x = Signal(intbv(0)[sd_intf.data_width:])
 
+    sDriver = sd_intf.dq.driver()
+
     sdramData_r  = Signal(intbv(0)[sd_intf.data_width:])
     sdramData_x  = Signal(intbv(0)[sd_intf.data_width:])
 
@@ -137,9 +140,9 @@ def SdramCntl(clk_i,host_intf, sd_intf):
         sd_intf.addr.next   = sAddr_r
         #sd_intf.driver.next = sData_r if sDataDir_r == OUTPUT_C else None
         if sDataDir_r == OUTPUT_C :
-           sd_intf.driver.next = sData_r
+            sDriver.next = sData_r
         else :
-            sd_intf.driver.next = None
+            sDriver.next = None
         sd_intf.dqml.next   = 0
         sd_intf.dqmh.next   = 0
 

@@ -1,5 +1,5 @@
 from myhdl import *
-from Simulator import *
+from sd_intf import sd_intf
 from math import ceil
 
 commands = enum("COM_INHIBIT","NOP","ACTIVE","READ","WRITE","BURST_TERM", \
