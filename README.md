@@ -87,6 +87,8 @@ MyHDL offeres a very simple interface to perform the conversion from MyHDL to ei
 ```
 pck_myhdl_10.vhd is a VHDL library file which is required by MySdramCntl.vhd (The name of the file may change depends on the MyHDL version being used.)
 
+The converted VHDL design has been verified on Xula2 board. Detailed step followed for the hardware verification can be found at http://design4hardware.blogspot.com/2015/08/detailed-steps-for-hardware.html
+
 ### How to Use ###
 
 The converted output (MySdramCntl.v or MySdramCntl.vhd and pck_myhdl_10.vhd) can be used in any RTL design just as a regular verilog/VHDL file. Simply add the converted files to an existing project and instantiate a MySdramCntl module.
